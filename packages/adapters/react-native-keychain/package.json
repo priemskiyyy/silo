@@ -1,0 +1,57 @@
+{
+  "name": "@priemskiyyy/silo-react-native-keychain",
+  "version": "0.1.0",
+  "description": "react-native-keychain adapter for silo: asynchronous, JSON-encoded persistence in the device keychain or keystore for bare React Native apps.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/adapters/react-native-keychain"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../../.. --project react-native-keychain"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "react-native-keychain",
+    "keychain",
+    "keystore",
+    "secure",
+    "react-native",
+    "storage",
+    "persistence",
+    "typescript",
+    "silo",
+    "adapter"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
