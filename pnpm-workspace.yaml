@@ -1,0 +1,12 @@
+packages:
+  - packages/*
+  - packages/adapters/*
+  - examples/*
+  - tests/browser
+
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - "@priemskiyyy/simulcast@0.4.0"
+  - "@priemskiyyy/simulcast-broadcast-channel@0.4.0"
