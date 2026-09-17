@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@priemskiyyy/silo": ["../../packages/core/dist/index.d.ts"],
+      "@priemskiyyy/silo-local-storage": [
+        "../../packages/adapters/local-storage/dist/index.d.ts"
+      ],
+      "@priemskiyyy/silo-session-storage": [
+        "../../packages/adapters/session-storage/dist/index.d.ts"
+      ],
+      "@priemskiyyy/silo-indexeddb": [
+        "../../packages/adapters/indexeddb/dist/index.d.ts"
+      ]
+    }
+  },
+  "include": ["*.ts", "apps/web/**/*.ts"]
+}

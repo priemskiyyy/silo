@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Silo browser tests</title>
+  </head>
+  <body>
+    <main>
+      <output data-testid="error"></output>
+
+      <section>
+        <h2>Web storage</h2>
+        <input data-testid="note-input" value="hello" />
+        <button data-testid="write-note" type="button">Write note</button>
+        <output data-testid="local-note"></output>
+        <output data-testid="session-note"></output>
+      </section>
+
+      <section>
+        <h2>IndexedDB</h2>
+        <button data-testid="increment" type="button">Increment</button>
+        <button data-testid="write-journal" type="button">Write journal</button>
+        <button data-testid="write-blob" type="button">Write blob</button>
+        <output data-testid="db-status"></output>
+        <output data-testid="db-count"></output>
+        <output data-testid="db-journal"></output>
+        <output data-testid="db-blob"></output>
+        <output data-testid="db-flush"></output>
+      </section>
+
+      <section>
+        <h2>Transactions</h2>
+        <button data-testid="probe-transaction" type="button">Probe</button>
+        <output data-testid="probe"></output>
+      </section>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>
