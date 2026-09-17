@@ -1,0 +1,70 @@
+{
+  "name": "@priemskiyyy/silo-devtools",
+  "version": "0.1.0",
+  "description": "Devtools for silo: a framework-independent inspector for a store's storages, records, migrations and events, with a React wrapper.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/devtools"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build && tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../.. --project devtools"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2",
+    "@priemskiyyy/silo-react": ">=0.1.0 <0.2",
+    "react": ">=19.2.0 <20"
+  },
+  "peerDependenciesMeta": {
+    "@priemskiyyy/silo-react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*",
+    "@priemskiyyy/silo-react": "workspace:*"
+  },
+  "keywords": [
+    "storage",
+    "persistence",
+    "devtools",
+    "inspector",
+    "debugging",
+    "react",
+    "typescript",
+    "silo"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
