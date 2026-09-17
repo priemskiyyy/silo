@@ -1,0 +1,58 @@
+{
+  "name": "@priemskiyyy/silo-sqlite",
+  "version": "0.1.0",
+  "description": "SQLite adapter for silo: synchronous persistence in one key-value table through node:sqlite, better-sqlite3 or bun:sqlite.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/adapters/sqlite"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../../.. --project sqlite"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "sqlite",
+    "node:sqlite",
+    "better-sqlite3",
+    "bun",
+    "node",
+    "electron",
+    "storage",
+    "persistence",
+    "typescript",
+    "silo",
+    "adapter"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
