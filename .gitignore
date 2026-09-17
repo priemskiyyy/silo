@@ -1,0 +1,19 @@
+node_modules/
+.idea/
+.DS_Store
+.env
+.env.*
+!.env.example
+dist/
+.svelte-kit/
+coverage/
+*.tgz
+.artifacts/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Agent coordination brief, not part of the library
+.silo-decisions.md
+
+# pnpm store created by the packed-consumer check
+.pnpm-store/
