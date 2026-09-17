@@ -1,0 +1,60 @@
+{
+  "name": "@priemskiyyy/silo-redis",
+  "version": "0.1.0",
+  "description": "Redis adapter for silo: asynchronous, JSON-encoded persistence through ioredis, node-redis or Upstash, for a store that lives on the server.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/adapters/redis"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../../.. --project redis"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*",
+    "@upstash/redis": "1.38.4",
+    "ioredis": "6.0.0",
+    "redis": "6.2.1"
+  },
+  "keywords": [
+    "redis",
+    "ioredis",
+    "node-redis",
+    "upstash",
+    "server",
+    "storage",
+    "persistence",
+    "typescript",
+    "silo",
+    "adapter"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
