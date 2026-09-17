@@ -1,0 +1,54 @@
+{
+  "name": "@priemskiyyy/silo-local-storage",
+  "version": "0.1.0",
+  "description": "localStorage adapter for silo: synchronous JSON-encoded persistence that survives a reload and syncs across tabs.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/adapters/local-storage"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../../.. --project local-storage"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "localstorage",
+    "storage",
+    "persistence",
+    "web-storage",
+    "cross-tab",
+    "typescript",
+    "silo"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
