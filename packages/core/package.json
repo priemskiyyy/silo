@@ -1,0 +1,74 @@
+{
+  "name": "@priemskiyyy/silo",
+  "version": "0.1.0",
+  "description": "Provider-independent typed reactive persistence runtime: schema-declared stored values, synchronous reads, coalesced writes, migrations, and cross-tab updates behind a small storage adapter contract.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mock": {
+      "types": "./dist/mock.d.ts",
+      "import": "./dist/mock.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../.. --project core"
+  },
+  "keywords": [
+    "storage",
+    "persistence",
+    "localstorage",
+    "sessionstorage",
+    "indexeddb",
+    "state",
+    "reactive",
+    "schema",
+    "typescript",
+    "silo",
+    "react-native",
+    "expo",
+    "cookie",
+    "mmkv",
+    "redis",
+    "migrations",
+    "devtools"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/",
+  "peerDependencies": {
+    "vitest": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  }
+}
