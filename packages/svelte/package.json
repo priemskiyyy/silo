@@ -1,0 +1,57 @@
+{
+  "name": "@priemskiyyy/silo-svelte",
+  "version": "0.1.0",
+  "description": "Svelte bindings for Silo: typed persisted values, scopes, status, and native storage.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/svelte"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/**/*.fixture.*",
+    "!dist/**/*.contracts.*",
+    "README.md",
+    "LICENSE"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "svelte-package -i src -o dist",
+    "lint:typescript": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../.. --project svelte --project svelte-ssr"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2",
+    "svelte": ">=5.7.0 <6"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "svelte",
+    "storage",
+    "persistence",
+    "reactive",
+    "typescript",
+    "silo"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/",
+  "svelte": "./dist/index.js"
+}
