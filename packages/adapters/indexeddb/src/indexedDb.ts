@@ -84,7 +84,6 @@ const openDatabase = ({
       );
   });
 
-
 /**
  * Stores structured values in IndexedDB, using one transaction per operation.
  * Cross-tab observation covers writes announced by other Silo adapters.
