@@ -1,0 +1,62 @@
+{
+  "name": "@priemskiyyy/silo-react",
+  "version": "0.1.0",
+  "description": "React bindings for silo: a provider that owns the store and hooks for typed stored values, per-value status, and the adapter's native storage.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../.. --project react"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20",
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "react",
+    "react-hooks",
+    "storage",
+    "persistence",
+    "localstorage",
+    "sessionstorage",
+    "indexeddb",
+    "state",
+    "reactive",
+    "typescript",
+    "ssr",
+    "silo",
+    "react-native",
+    "expo"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
