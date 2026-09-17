@@ -38,6 +38,11 @@ const silo = new Silo({
       schema: { theme: value<Theme>({ fallback: "light" }) },
     },
   },
+  // Version 2 renames the key an older release wrote. Each step is
+  // checkpointed as it lands, so a failure never runs it twice.
+  migrations: {
+    2: (store) => store.rename("legacyTheme", "theme"),
+  },
 });
 
 declare module "@priemskiyyy/silo-react" {
@@ -67,7 +72,8 @@ export const App = () => (
 The first candidate whose `available()` probe passes wins, so the same store
 runs on a server or in a browser that blocks site data, on `memory()`. Swap
 `localStorage()` for `indexedDb()`, `mmkv({ storage })` or `redis({ client })`
-and the component does not change. The full
+and the component does not change. `rename`, `move` and `copy` on the
+migration store cover most schema changes, across storages too. The full
 [getting started guide](https://priemskiyyy.github.io/silo/getting-started)
 adds a second storage, a scope per user and an expiring key.
 
