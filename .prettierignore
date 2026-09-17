@@ -1,0 +1,12 @@
+pnpm-lock.yaml
+dist
+.svelte-kit
+node_modules
+.artifacts
+coverage
+docs/.vitepress/dist
+docs/.vitepress/cache
+
+# The authoring brief, not shipped code: formatting it would rewrite the
+# normative type sketches inside its fenced blocks.
+.silo-decisions.md
