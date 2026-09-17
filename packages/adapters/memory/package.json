@@ -1,0 +1,55 @@
+{
+  "name": "@priemskiyyy/silo-memory",
+  "version": "0.1.0",
+  "description": "In-memory adapter for silo: a Map of structured clones, with no platform behind it, for tests, server rendering, and the zero-configuration start.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/adapters/memory"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../../.. --project memory"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "memory",
+    "storage",
+    "persistence",
+    "testing",
+    "ssr",
+    "typescript",
+    "silo",
+    "adapter"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
