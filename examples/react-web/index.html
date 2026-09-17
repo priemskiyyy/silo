@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fieldbook · Silo</title>
+    <link rel="icon" type="image/png" href="%BASE_URL%favicon.png" />
+    <script>
+      // The theme is a plain JSON string under the store's physical key, so
+      // the page can paint it before React and the store exist: no flash of
+      // the wrong scheme on a warm start.
+      (() => {
+        let theme = "system";
+
+        try {
+          const raw = localStorage.getItem("fieldbook:theme");
+          theme = raw === null ? "system" : JSON.parse(raw);
+        } catch {
+          // A corrupt raw (the Lab writes one) falls back like the store does.
+        }
+
+        const dark =
+          theme === "dark" ||
+          (theme !== "light" &&
+            matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

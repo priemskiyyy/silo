@@ -1,0 +1,37 @@
+{
+  "name": "example-react-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint:typescript": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
+    "@priemskiyyy/silo": "workspace:*",
+    "@priemskiyyy/silo-cookie": "workspace:*",
+    "@priemskiyyy/silo-devtools": "workspace:*",
+    "@priemskiyyy/silo-http": "workspace:*",
+    "@priemskiyyy/silo-indexeddb": "workspace:*",
+    "@priemskiyyy/silo-local-storage": "workspace:*",
+    "@priemskiyyy/silo-memory": "workspace:*",
+    "@priemskiyyy/silo-react": "workspace:*",
+    "@priemskiyyy/silo-search-params": "workspace:*",
+    "@priemskiyyy/silo-session-storage": "workspace:*",
+    "@priemskiyyy/silo-simulcast": "workspace:*",
+    "@priemskiyyy/simulcast": "0.4.0",
+    "@priemskiyyy/simulcast-broadcast-channel": "0.4.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "ts-pattern": "5.9.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3"
+  }
+}
