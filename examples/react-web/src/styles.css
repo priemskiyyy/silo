@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+:root {
+  --panel-padding: 1rem;
+  --row-gap: 0.75rem;
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+/* Native controls (selects, scrollbars, the search field's clear button) follow the page, not the OS. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-density="compact"] {
+  --panel-padding: 0.625rem;
+  --row-gap: 0.375rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  @apply min-h-dvh bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  background-image:
+    radial-gradient(
+      60rem 30rem at 10% -10%,
+      rgb(245 158 11 / 0.14),
+      transparent
+    ),
+    radial-gradient(50rem 30rem at 100% 0%, rgb(56 189 248 / 0.1), transparent);
+}
+
+@keyframes outside-flash {
+  from {
+    background-color: rgb(245 158 11 / 0.35);
+  }
+}
+
+[data-changed-outside="true"] {
+  animation: outside-flash 1.4s ease-out;
+}
