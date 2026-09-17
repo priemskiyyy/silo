@@ -1,0 +1,54 @@
+{
+  "name": "@priemskiyyy/silo-session-storage",
+  "version": "0.1.0",
+  "description": "sessionStorage adapter for silo: synchronous JSON-encoded persistence scoped to one tab and cleared when it closes.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/adapters/session-storage"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../../.. --project session-storage"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "sessionstorage",
+    "storage",
+    "persistence",
+    "web-storage",
+    "tab-scoped",
+    "typescript",
+    "silo"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
