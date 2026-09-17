@@ -1,0 +1,57 @@
+{
+  "name": "@priemskiyyy/silo-search-params",
+  "version": "0.1.0",
+  "description": "URL adapter for silo: synchronous persistence in the page's query string or fragment, so filters and view state are shareable links and survive a reload.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priemskiyyy/silo.git",
+    "directory": "packages/adapters/search-params"
+  },
+  "bugs": {
+    "url": "https://github.com/priemskiyyy/silo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint:typescript": "tsc --noEmit -p .",
+    "lint:eslint": "eslint src",
+    "test:unit": "vitest run --root ../../.. --project search-params"
+  },
+  "peerDependencies": {
+    "@priemskiyyy/silo": ">=0.1.0 <0.2"
+  },
+  "devDependencies": {
+    "@priemskiyyy/silo": "workspace:*"
+  },
+  "keywords": [
+    "url",
+    "query-string",
+    "search-params",
+    "hash",
+    "history",
+    "storage",
+    "persistence",
+    "typescript",
+    "silo",
+    "adapter"
+  ],
+  "homepage": "https://priemskiyyy.github.io/silo/"
+}
