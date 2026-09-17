@@ -1,0 +1,30 @@
+name: Bug report
+description: Report incorrect behavior with a reproducible example.
+labels: [bug]
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Link a minimal repository or provide steps and a small code example. Include the value definition, its codec, and any `fallback` or `expiresIn`.
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Environment
+      description: Include Silo packages, the adapter in use, framework, browser or Node version, and operating system.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Values and status
+      description: Include the expected and actual stored values and the `status` reported. Remove tokens, credentials, and personal data before posting.
