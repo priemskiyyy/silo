@@ -1,0 +1,51 @@
+name: packages-test
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "tests/browser/**"
+      - "scripts/**"
+  push:
+    branches:
+      - "main"
+    paths-ignore:
+      - "**.md"
+      - "tests/browser/**"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.18.0", "24"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Linting Typescript
+        run: pnpm lint:typescript
+
+      - name: Linting Eslint
+        run: pnpm lint:eslint
+
+      # Storage is local, so the whole suite runs here with no service, no
+      # container, and no credentials.
+      - name: Unit tests
+        run: pnpm test:unit
