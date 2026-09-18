@@ -1,8 +1,8 @@
 # Fieldbook
 
-A field notebook for expeditions, and silo's showcase: one store, eight places
-to keep things, a server that lives in the page, and a Lab that breaks them on
-purpose so every core guarantee is visible on screen.
+A browser notebook with scoped entries, drafts, and preferences. Storage
+comparison, failure simulation, and devtools are available further down the page.
+For a native application, see [Expo Fieldbook](../expo/README.md).
 
 ```sh
 pnpm install --frozen-lockfile
@@ -13,26 +13,15 @@ pnpm --filter example-react-web dev
 `pnpm exec playwright test -c examples/playwright.config.ts` runs the spec
 against the built app at 375px and 1280px.
 
-## The four steps
+## Explore
 
-The page is a tour, top to bottom, with a numbered nav in the sticky header.
+Start with the notebook: add an entry, switch to another notebook, then reload.
+The header navigation remains available on small screens and preserves URL
+storage values. Clearing a notebook asks for confirmation and reports the result.
 
-1. **Pick a place.** The same `note` and `count` keys are declared in eight
-   storages, and the core keeps eight distinct values. Pick a chip, type,
-   count, then reload or open a second tab. The facts beside the field say
-   what to expect, and "Compare all eight" opens the whole matrix.
-2. **A real notebook on top.** Entries live in IndexedDB under a notebook
-   scope (`notebooks:alpine`), the composer in sessionStorage, the supplies as
-   a `Map`, and the look in localStorage next to a cookie. Switching notebooks
-   swaps the keyspace; "Clear this notebook" removes only that one. The theme
-   here is the page's one theme control: `index.html` reads the raw before
-   React runs, so a warm start paints the right scheme on its first frame.
-3. **Break things.** The Lab rebuilds the store without localStorage, slows
-   IndexedDB down, refuses a write, corrupts a raw, plants v1 data. The Server
-   card beside it is the Remote storage's other half: its latency, a 503 on
-   demand, and the http adapter's requests as they arrive.
-4. **Look inside.** What the devtools launcher in the corner opens, and what
-   to look for once you have broken something.
+The storage playground compares eight backends. The recovery section explains
+its failure controls beside each button, including refused writes, delayed reads,
+and corrupt values. Open the devtools launcher to inspect the resulting events.
 
 | Storage                | Adapters                                 | Keys                                            | Why                                                                                                    |
 | ---------------------- | ---------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |

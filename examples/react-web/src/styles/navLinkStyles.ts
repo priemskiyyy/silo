@@ -1,8 +1,7 @@
 import { cva } from "class-variance-authority";
 
-/** One numbered link in the sticky step nav; the step being read is amber. */
 export const navLinkStyles = cva(
-  "inline-flex h-8 items-center gap-2 rounded-full px-3 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
+  "inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500",
   {
     variants: {
       current: {

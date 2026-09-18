@@ -43,7 +43,7 @@ export const ComposerPanel: React.FunctionComponent<ComposerPanelProps> = ({
     <Panel
       title="Composer"
       icon={PencilLine}
-      shows="A draft in sessionStorage, this tab only, and the write pipeline a save goes through."
+      shows="Write a longer entry. Your unfinished draft stays in this tab."
       livesIn={livesIn}
       aside={<Badge tone="neutral">This tab only</Badge>}
     >

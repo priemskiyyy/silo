@@ -1,6 +1,6 @@
-import type React from "react";
 import { Broom } from "@phosphor-icons/react";
 import { useSilo } from "@priemskiyyy/silo-react";
+import { useState } from "react";
 import { NotebookSwitch } from "src/components/Notebook/NotebookSwitch";
 import type { NotebookId } from "src/state/applicationReducer";
 import { buttonStyles } from "src/styles/buttonStyles";
@@ -10,37 +10,83 @@ type NotebookToolbarProps = {
   onNotebookSelect: (notebookId: NotebookId) => void;
 };
 
-/** Which notebook the panels below show, and the one action that touches a whole scope. */
-export const NotebookToolbar: React.FunctionComponent<NotebookToolbarProps> = ({
+type ClearState =
+  | { state: "idle" | "confirming" | "clearing" | "cleared" }
+  | { state: "error"; message: string };
+
+export const NotebookToolbar = ({
   notebookId,
   onNotebookSelect,
-}) => {
+}: NotebookToolbarProps) => {
   const silo = useSilo();
-  // A refused removal lands on each value's status, so the barrier's
-  // rejection carries nothing the toolbar would show on top of it.
-  const handleClearPress = () => {
-    silo
-      .scope(`notebooks:${notebookId}`)
-      .clear()
-      .catch(() => undefined);
+  const [clear, setClear] = useState<ClearState>({ state: "idle" });
+
+  const handleClearPress = async () => {
+    setClear({ state: "clearing" });
+    try {
+      await silo.scope(`notebooks:${notebookId}`).clear();
+      setClear({ state: "cleared" });
+    } catch {
+      setClear({
+        state: "error",
+        message: "Some data could not be removed. Try clearing again.",
+      });
+    }
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <NotebookSwitch value={notebookId} onSelect={onNotebookSelect} />
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        A notebook is a scope: the same keys under{" "}
-        <code className="font-mono">notebooks:{notebookId}</code>, nothing
-        copied between them.
-      </p>
-      <button
-        type="button"
-        onClick={handleClearPress}
-        className={`${buttonStyles()} sm:ml-auto`}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <NotebookSwitch value={notebookId} onSelect={onNotebookSelect} />
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Each notebook keeps its own entries, draft, and supplies.
+        </p>
+        <button
+          type="button"
+          onClick={() => setClear({ state: "confirming" })}
+          disabled={clear.state === "clearing"}
+          className={`${buttonStyles({ variant: "ghost" })} sm:ml-auto`}
+        >
+          <Broom size={14} /> Clear this notebook
+        </button>
+      </div>
+      {clear.state === "confirming" ? (
+        <div
+          role="group"
+          aria-label="Confirm notebook removal"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-900 dark:bg-rose-950/30"
+        >
+          <p className="mr-auto text-sm">
+            Remove all entries, the draft, and supplies from{" "}
+            <strong className="capitalize">{notebookId}</strong>? This cannot be
+            undone.
+          </p>
+          <button
+            type="button"
+            onClick={() => setClear({ state: "idle" })}
+            className={buttonStyles()}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleClearPress}
+            className={buttonStyles({ variant: "primary" })}
+          >
+            Confirm clear
+          </button>
+        </div>
+      ) : null}
+      <p
+        role="status"
+        className="text-sm text-zinc-600 empty:hidden dark:text-zinc-400"
       >
-        <Broom size={14} weight="bold" />
-        Clear this notebook
-      </button>
+        {clear.state === "clearing" ? "Clearing notebook…" : null}
+        {clear.state === "cleared"
+          ? "Notebook cleared. Your other notebooks and preferences are unchanged."
+          : null}
+        {clear.state === "error" ? clear.message : null}
+      </p>
     </div>
   );
 };

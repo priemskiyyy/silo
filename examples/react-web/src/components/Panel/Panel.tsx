@@ -40,18 +40,25 @@ export const Panel: React.FunctionComponent<PanelProps> = ({
       </div>
       <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
         <span>{shows}</span>
-        {livesIn.map((place) => (
-          <Badge
-            key={place.storage}
-            tone={place.adapter === "memory" ? "accent" : "neutral"}
-          >
-            <span className="font-mono">{place.storage}</span>
-            <span aria-hidden="true">·</span>
-            <span>{place.adapter}</span>
-            <span className="opacity-60">{place.mode}</span>
-          </Badge>
-        ))}
       </p>
+      {livesIn.length === 0 ? null : (
+        <details className="text-xs text-zinc-500 dark:text-zinc-400">
+          <summary className="cursor-pointer py-1">Storage details</summary>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {livesIn.map((place) => (
+              <Badge
+                key={place.storage}
+                tone={place.adapter === "memory" ? "accent" : "neutral"}
+              >
+                <span className="font-mono">{place.storage}</span>
+                <span aria-hidden="true">·</span>
+                <span>{place.adapter}</span>
+                <span className="opacity-60">{place.mode}</span>
+              </Badge>
+            ))}
+          </div>
+        </details>
+      )}
     </header>
     {children}
   </section>

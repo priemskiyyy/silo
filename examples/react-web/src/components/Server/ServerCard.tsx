@@ -65,7 +65,7 @@ export const ServerCard: React.FunctionComponent = () => {
         <EmptyState
           icon={Receipt}
           title="No requests yet"
-          description="Pick Remote in step 1 and type: every GET and PUT lands here, newest first."
+          description="Choose Remote in Storages and type a note. Its requests appear here, newest first."
         />
       ) : (
         <ol

@@ -100,22 +100,11 @@ export const Application: React.FunctionComponent = () => {
       <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6">
         <Hero />
         <Section
-          id="place"
-          hint="pick a place, type, then reload or open a second tab and see what came along."
-        >
-          <PlaygroundPanel
-            places={places}
-            storage={playgroundStorage}
-            onStorageSelect={(storage) =>
-              dispatch({ type: "PLAYGROUND_STORAGE_SELECTED", storage })
-            }
-          />
-        </Section>
-        <Section
           id="notebook"
-          hint="add an entry, switch notebooks, then reload. Change the theme: the next load paints it before React runs."
+          hint="Add an entry, switch notebooks, then reload to see what was saved."
         >
           <NotebookToolbar
+            key={notebookId}
             notebookId={notebookId}
             onNotebookSelect={(next) =>
               dispatch({ type: "NOTEBOOK_SELECTED", notebookId: next })
@@ -123,6 +112,7 @@ export const Application: React.FunctionComponent = () => {
           />
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <SiloProvider
+              key={notebookId}
               silo={fieldbook.silo}
               scope={`notebooks:${notebookId}`}
             >
@@ -136,8 +126,20 @@ export const Application: React.FunctionComponent = () => {
           <PreferencesPanel livesIn={placesOf("default", "preferences")} />
         </Section>
         <Section
+          id="place"
+          hint="Choose a storage, write a note, then reload or open a second tab."
+        >
+          <PlaygroundPanel
+            places={places}
+            storage={playgroundStorage}
+            onStorageSelect={(storage) =>
+              dispatch({ type: "PLAYGROUND_STORAGE_SELECTED", storage })
+            }
+          />
+        </Section>
+        <Section
           id="lab"
-          hint="press Fail next write, save an entry in step 2, then Retry. Pick Remote in step 1 and watch the Server."
+          hint="Simulate a storage problem, then return to the notebook to try saving."
         >
           <div className="grid gap-3 xl:grid-cols-2">
             <LabBar
@@ -158,7 +160,7 @@ export const Application: React.FunctionComponent = () => {
         </Section>
         <Section
           id="inside"
-          hint="open the launcher in the corner, break something in step 3, and watch the timeline."
+          hint="Open the inspector in the corner to see values, storage errors, and recent changes."
         >
           <DevtoolsCard />
         </Section>

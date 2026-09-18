@@ -59,6 +59,65 @@ const addEntry = async (page: Page, title: string) => {
 };
 
 for (const width of WIDTHS) {
+  test(`navigation preserves shared URL data at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await open(page, width);
+    await page.screenshot({
+      path: testInfo.outputPath("notebook.png"),
+      fullPage: false,
+    });
+    const note = await pick(page, "Synced URL");
+    await note.fill("keep this fragment");
+    await expect(page).toHaveURL(/#note=keep\+this\+fragment/);
+    const navigation = page.getByRole("navigation", {
+      name: "Explore Fieldbook",
+    });
+    await expect(navigation).toBeVisible();
+    await navigation
+      .getByRole("button", { name: "Notebook", exact: true })
+      .click();
+    await expect(page).toHaveURL(/#note=keep\+this\+fragment/);
+    await expect(
+      page.getByRole("textbox", { name: "New entry", exact: true }),
+    ).toBeInViewport();
+  });
+
+  test(`clearing a notebook requires confirmation at ${width}px`, async ({
+    page,
+  }) => {
+    await open(page, width);
+    await addEntry(page, "Keep until confirmed");
+    await page.getByRole("button", { name: "Coast", exact: true }).click();
+    await addEntry(page, "Keep the coast note");
+    await page.getByRole("button", { name: "Alpine", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Clear this notebook", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(
+      panel(page, "Entries").getByText("Keep until confirmed", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Clear this notebook", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Confirm clear", exact: true })
+      .click();
+    await expect(
+      page.getByText(
+        "Notebook cleared. Your other notebooks and preferences are unchanged.",
+      ),
+    ).toBeVisible();
+    await expect(
+      panel(page, "Entries").getByText("No entries yet", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Coast", exact: true }).click();
+    await expect(
+      panel(page, "Entries").getByText("Keep the coast note", { exact: true }),
+    ).toBeVisible();
+  });
+
   test(`entries survive a reload and stay inside their notebook at ${width}px`, async ({
     page,
   }) => {

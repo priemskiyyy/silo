@@ -94,7 +94,7 @@ const EntriesList: React.FunctionComponent<EntriesListProps> = ({
       <EmptyState
         icon={NotePencil}
         title="Nothing matches"
-        description="The filter, the sort and the search are in the URL. Share the link and they come along."
+        description="Try another filter or clear the search to see your entries."
       />
     );
   }
@@ -190,7 +190,7 @@ export const EntriesPanel: React.FunctionComponent<EntriesPanelProps> = ({
     <Panel
       title="Entries"
       icon={NotePencil}
-      shows="A list in IndexedDB under the notebook scope, a Date and a Set per entry, filtered by keys that live in the URL."
+      shows="Saved notes for this notebook. Filters and search stay in the URL."
       livesIn={livesIn}
       aside={
         <>
@@ -205,6 +205,7 @@ export const EntriesPanel: React.FunctionComponent<EntriesPanelProps> = ({
         aria-label="Add entry"
       >
         <input
+          id="new-entry"
           aria-label="New entry"
           placeholder="Reached the ridge #camp"
           value={draftTitle}

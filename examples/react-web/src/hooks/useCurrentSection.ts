@@ -12,7 +12,7 @@ const SECTION_IDS = Object.keys(SECTIONS).filter(isSectionId);
  * short and never reaches the band, so the end of the page selects it.
  */
 export const useCurrentSection = () => {
-  const [current, setCurrent] = useState<SectionId>("place");
+  const [current, setCurrent] = useState<SectionId>("notebook");
 
   useEffect(() => {
     const crossing = new Set<SectionId>();

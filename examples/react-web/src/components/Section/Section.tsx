@@ -22,7 +22,7 @@ export const Section: React.FunctionComponent<SectionProps> = ({
     <section
       id={id}
       aria-labelledby={`${id}-title`}
-      className="flex scroll-mt-20 flex-col gap-3"
+      className="flex scroll-mt-32 flex-col gap-3"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span
