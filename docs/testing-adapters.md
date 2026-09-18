@@ -9,8 +9,9 @@ every adapter runs. It checks the parts of the contract that are the same for
 every backend, so an adapter's own tests are free to cover only what is
 specific to it.
 
-This page is about testing an adapter. For testing an application that uses
-Silo, see [Testing an application](testing.md).
+This page shows how to test an adapter. See [backend test coverage](verification.md)
+for the environments used by shipped adapters, or [application testing](testing.md)
+for testing code that uses Silo.
 
 ```sh
 pnpm add -D @priemskiyyy/silo vitest
@@ -50,10 +51,8 @@ The suite always round-trips a JSON-safe corpus: a string, an empty string, a
 number, zero, a negative fraction, both booleans, an empty array, a mixed
 array, an empty object and a nested object. `values` adds to it.
 
-The corpus is what makes the encoding boundary testable. Because
-[the adapter owns serialization](writing-an-adapter.md), which values survive
-is a property of the backend, and the only honest way to state it is a test
-that fails when it stops being true:
+Use the corpus to verify the value types your adapter promises to preserve.
+For example, structured storage can support additional types:
 
 ```ts
 import { testStorageAdapter } from "@priemskiyyy/silo/testing";
@@ -73,9 +72,8 @@ testStorageAdapter({
 });
 ```
 
-A text backend passes nothing here, and that is the point: adding `date` to a
-JSON backend's corpus makes the suite fail with the round trip that breaks in
-production, rather than letting a README claim it works. An adapter with a
+Only add values the adapter can preserve. For example, a Date case fails on a
+plain JSON adapter because it reads back as a string. An adapter with a
 `format` option can run the suite twice, once with JSON and once with
 `superjson`, and pass a wider corpus to the second run.
 
@@ -162,7 +160,7 @@ testStorageAdapter({
 });
 ```
 
-A fake proves the mapping, not the platform. Keep it to the methods the adapter
+A fake checks how the adapter calls the SDK. It does not exercise the platform. Keep it to the methods the adapter
 calls, make it behave the way the real SDK is documented to behave for those
 methods, and put the platform's own failure modes in the adapter's tests.
 
@@ -172,10 +170,8 @@ Mode-specific assertions live in two `describe.runIf` blocks, and only one
 runs.
 
 The synchronous block contains no `await` and no `async` callback anywhere.
-That is not a style preference. A test that awaits a value proves nothing
-about whether the value was a promise, because `await 5` is legal and yields
-`5`. The only construction that proves a synchronous adapter is synchronous is
-a block that never awaits:
+Check synchronous return values directly. Awaiting them would also accept an
+accidentally asynchronous implementation:
 
 ```ts
 import { expect, test } from "vitest";
@@ -259,8 +255,8 @@ project("packages/adapters", "indexeddb", { setupFiles: ["fake-indexeddb/auto"] 
 project("packages/adapters", "mmkv"),
 ```
 
-`node` is the default and fits every adapter that wraps a handed-over
+`node` is the default and fits every adapter that wraps a supplied
 instance. `jsdom` is for the web storage areas, cookies and search params,
 which need a document, a location and a history. The IndexedDB project loads
-`fake-indexeddb/auto` as a setup file, so it exercises real IDB semantics,
-transactions and structured clone included, without a browser.
+`fake-indexeddb/auto` as a setup file, to emulate IndexedDB operations. The browser suite separately checks native
+transactions and supported structured values.

@@ -38,6 +38,7 @@ const CANONICAL_PAGES = [
   "writing-an-adapter.md",
   "testing.md",
   "testing-adapters.md",
+  "verification.md",
   "troubleshooting.md",
   "internals/architecture.md",
   "internals/memory.md",

@@ -218,6 +218,7 @@ export default defineConfig({
           { text: "Browser devtools", link: "/devtools" },
           { text: "Application testing", link: "/testing" },
           { text: "Adapter conformance", link: "/testing-adapters" },
+          { text: "Backend test coverage", link: "/verification" },
           { text: "Troubleshooting", link: "/troubleshooting" },
         ],
       },

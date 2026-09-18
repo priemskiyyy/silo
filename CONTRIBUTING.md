@@ -14,7 +14,8 @@ Use Node 22.18 or newer and the pnpm version in `package.json`. Run `pnpm instal
   - Desktop and Node: `json-file`, `sqlite`, `electron-store`, `tauri-store`, `unstorage`.
   - Server and edge: `redis`, `http`, `cloudflare-kv`, `cloudflare-durable-objects`.
   - Everywhere: `memory`, the floor every candidate list ends in, and `simulcast`, which wraps any adapter with live change notifications from a realtime channel.
-- `examples/react-web`: the Fieldbook showcase, with its Playwright spec in `examples/fieldbook.spec.ts`.
+- `examples/react-web`: the browser Fieldbook showcase, with its Playwright spec in `examples/fieldbook.spec.ts`.
+- `examples/expo`: the native Fieldbook example, with an Expo web-preview spec in `examples/expo.spec.ts`.
 - `tests/browser`: a Playwright fixture over a Vite application, for the guarantees no fake can prove.
 - `scripts/*`: the verification scripts behind `pnpm test:package`, `pnpm test:memory`, `pnpm verify:docs`, `pnpm verify:release` and the demo build.
 - `.silo-decisions.md`: the decision log. A change that alters a documented decision adds an amendment rather than editing history.
@@ -35,11 +36,11 @@ An adapter maps one backend onto the contract and nothing more. It owns serializ
 
 ## Testing
 
-`pnpm test:unit` runs one vitest project per package, each with a `src` alias onto its own source. The core, the devtools and most adapters run in `node`; the React binding, the web storage areas, the cookie and the search params adapters run in `jsdom`. The IndexedDB project loads `fake-indexeddb/auto` as a setup file, so it exercises real IDB semantics, transactions and structured clone included, without a browser. The web storage projects drive external change with a synthetic `new StorageEvent("storage", { ... })`, because jsdom never dispatches one on its own. Adapters over an SDK test against an in-process fake of the SDK's shape, exported from `src/<name>.fixture.ts`.
+`pnpm test:unit` runs one vitest project per package, each with a `src` alias onto its own source. The core, the devtools and most adapters run in `node`; the React binding, the web storage areas, the cookie and the search params adapters run in `jsdom`. The IndexedDB project loads `fake-indexeddb/auto` as a setup file, to emulate IndexedDB in unit tests. Native transaction behavior is covered separately by the browser suite. The web storage projects drive external change with a synthetic `new StorageEvent("storage", { ... })`, because jsdom never dispatches one on its own. Adapters over an SDK test against an in-process fake of the SDK's shape, exported from `src/<name>.fixture.ts`.
 
 Silo needs no Docker, no server and no credentials to run its full suite. Storage is local, so every backend it supports is either in process, faked in process, or in the test runtime.
 
-Fakes cannot prove everything. Run `pnpm exec playwright install chromium firefox webkit` once, then `pnpm test:browser` for the Playwright fixture, which covers the claims that need a real browser: a real IndexedDB, a real cross-tab `storage` event between two pages and a real quota rejection. `pnpm test:examples` builds the example and runs its spec at phone and desktop widths. `pnpm test:package` packs every tarball, installs it into a throwaway consumer and typechecks the public contracts against the emitted declarations. `pnpm check:release` runs everything, including the documentation build.
+Fakes cannot prove everything. Run `pnpm exec playwright install chromium firefox webkit` once, then `pnpm test:browser` for the Playwright fixture, which covers the claims that need a real browser: a real IndexedDB, a real cross-tab `storage` event between two pages and transaction timing. Quota errors are simulated in unit tests; the browser suite does not fill an origin to its quota. `pnpm test:examples` builds the example and runs its spec at phone and desktop widths. `pnpm test:package` packs every tarball, installs it into a throwaway consumer and typechecks the public contracts against the emitted declarations. `pnpm check:release` runs everything, including the documentation build.
 
 `pnpm test:memory` checks garbage collection of released records and disposed owners after a build; it also runs in `pnpm check`. `pnpm benchmark:memory 50000 release` measures retained heap with a non-retaining adapter. See [memory ownership](docs/internals/memory.md).
 
