@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-electron-store
 
-electron-store adapter for [silo](../../core): synchronous persistence in an [`electron-store`](https://github.com/sindresorhus/electron-store) or [`conf`](https://github.com/sindresorhus/conf) instance, with the file's own change watch turned into silo updates. The instance is handed over, so this package imports nothing from Electron.
+Use an electron-store or conf instance with [Silo](../../core), including its change notifications.
 
 ## Installation
 
@@ -37,10 +37,10 @@ console.log(silo.value("theme").get()); // "dark", read synchronously
 
 ## Options
 
-| Option      | Default      | Meaning                                                                                    |
-| ----------- | ------------ | ------------------------------------------------------------------------------------------ |
-| `store`     | required     | An `electron-store` or `conf` instance, constructed by the application.                    |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction. |
+| Option      | Default      | Meaning                                                                 |
+| ----------- | ------------ | ----------------------------------------------------------------------- |
+| `store`     | required     | An `electron-store` or `conf` instance, constructed by the application. |
+| `available` | `() => true` | Overrides the synchronous availability check.                           |
 
 ## Behavior
 

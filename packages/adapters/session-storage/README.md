@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-session-storage
 
-[sessionStorage](https://developer.mozilla.org/docs/Web/API/Window/sessionStorage) adapter for [silo](../../core): synchronous, JSON encoded persistence private to one tab and dropped when that tab closes. The place for a wizard step or a draft, not for a preference.
+Persist [Silo](../../core) values in browser sessionStorage for the current tab.
 
 ## Installation
 
@@ -44,7 +44,7 @@ The export is called `sessionStorage`, which shadows the DOM global inside the i
 ## Behavior
 
 - A session area survives a reload and a same-tab navigation, is copied into a duplicated tab, and is gone when the tab closes. Two tabs share nothing.
-- Values are JSON text: a `Date` reads back as a string, `undefined` is a removal, and a stored string that is not JSON throws on read, which the core reports as a hydrate error and leaves in place for `set` to overwrite. Pass `format: superjson` (or `devalue`, anything with `stringify` and `parse`) for values JSON cannot spell; changing the format over existing data is a migration.
+- Values are JSON text: a `Date` reads back as a string, `undefined` is a removal, and a stored string that is not JSON throws on read, which the core reports as a hydrate error and leaves in place for `set` to overwrite. Pass `format: superjson` (or `devalue`, anything with `stringify` and `parse`) for values JSON cannot preserve; changing the format over existing data is a migration.
 - `available` overrides the platform probe, so a candidate list can be gated by application state at construction, such as a consent flag.
 - A `QuotaExceededError` propagates, and the core reports it on the value's status as a write error.
 - `observe` is implemented and almost never fires: the `storage` event never fires in the tab that wrote, and only a same-origin iframe shares the session. It is filtered by storage area, and `{ key: null }` is a clear.

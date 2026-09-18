@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-capacitor-preferences
 
-[Capacitor Preferences](https://capacitorjs.com/docs/apis/preferences) adapter for [silo](../../core): asynchronous, JSON encoded persistence in `UserDefaults` on iOS, `SharedPreferences` on Android and `localStorage` on the web, behind the one plugin API.
+Use Capacitor Preferences with [Silo](../../core). The application supplies the plugin instance.
 
 ## Installation
 
@@ -43,7 +43,7 @@ await theme.flush();
 | Option        | Default      | Meaning                                                                                                                    |
 | ------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `preferences` | required     | The `Preferences` plugin, configured by the application.                                                                   |
-| `available`   | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available`   | `() => true` | Overrides the synchronous availability check.                                                                              |
 | `format`      | `JSON`       | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior
@@ -54,7 +54,7 @@ await theme.flush();
 - On the web the plugin writes to `localStorage` under a `CapacitorStorage.` prefix; the adapter never sees the prefix.
 - A preferences group is the application's choice: call `Preferences.configure({ group })` once, before constructing the store.
 - Nothing reports a change from outside the adapter, so there is no `observe`.
-- `dispose` releases nothing and deletes nothing: the preferences outlive the adapter.
+- `dispose` leaves the underlying data and client intact: the preferences outlive the adapter.
 
 ## License
 

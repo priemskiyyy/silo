@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-local-storage
 
-[localStorage](https://developer.mozilla.org/docs/Web/API/Window/localStorage) adapter for [silo](../../core): synchronous, JSON encoded persistence that survives a reload and reaches every tab on the origin.
+Persist [Silo](../../core) values in browser localStorage, with updates from other tabs through storage events.
 
 ## Installation
 
@@ -43,7 +43,7 @@ The export is called `localStorage`, which shadows the DOM global inside the imp
 
 ## Behavior
 
-- Values are JSON text: a `Date` reads back as a string, `undefined` is a removal, and a stored string that is not JSON throws on read, which the core reports as a hydrate error and leaves in place for `set` to overwrite. Pass `format: superjson` (or `devalue`, anything with `stringify` and `parse`) for values JSON cannot spell; changing the format over existing data is a migration.
+- Values are JSON text: a `Date` reads back as a string, `undefined` is a removal, and a stored string that is not JSON throws on read, which the core reports as a hydrate error and leaves in place for `set` to overwrite. Pass `format: superjson` (or `devalue`, anything with `stringify` and `parse`) for values JSON cannot preserve; changing the format over existing data is a migration.
 - `available` overrides the platform probe, so a candidate list can be gated by application state at construction, such as a consent flag.
 - A `QuotaExceededError` propagates, and the core reports it on the value's status as a write error. Browsers allot about 5MB per origin, shared with every other library.
 - `observe` listens for the `storage` event, filtered by storage area so a `sessionStorage` write never masquerades as a local one. The event never fires in the tab that wrote, so there is no echo. `{ key: null }` is a clear.

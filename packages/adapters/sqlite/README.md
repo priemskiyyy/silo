@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-sqlite
 
-SQLite adapter for [silo](../../core): synchronous persistence in one key-value table, through the connection your application already opened. One adapter serves `node:sqlite`, `better-sqlite3` and `bun:sqlite`, because the three share the statement API the adapter uses.
+Persist [Silo](../../core) values through an existing synchronous SQLite connection. The application opens and closes the connection.
 
 ## Installation
 
@@ -54,7 +54,7 @@ sqlite({ database: new Database("state.db") });
 | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `database`  | required     | An open connection the application owns, opens and closes.                                                                 |
 | `table`     | `"silo"`     | The key-value table, created on first use. Letters, digits and underscores only.                                           |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available` | `() => true` | Overrides the synchronous availability check.                                                                              |
 | `format`    | `JSON`       | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior

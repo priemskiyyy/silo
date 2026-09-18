@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-cloudflare-durable-objects
 
-[Durable Objects](https://developers.cloudflare.com/durable-objects/) adapter for [silo](../../core), with no dependencies: an object's own storage, strongly consistent, values kept as structured clones.
+Use a Durable Object storage instance with [Silo](../../core). The application supplies the object's storage.
 
 ## Installation
 
@@ -46,17 +46,17 @@ export class Counter extends DurableObject {
 
 ## Options
 
-| Option      | Default      | Meaning                                                                                    |
-| ----------- | ------------ | ------------------------------------------------------------------------------------------ |
-| `storage`   | required     | The object's own `ctx.storage`.                                                            |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction. |
+| Option      | Default      | Meaning                                       |
+| ----------- | ------------ | --------------------------------------------- |
+| `storage`   | required     | The object's own `ctx.storage`.               |
+| `available` | `() => true` | Overrides the synchronous availability check. |
 
 ## Behavior
 
 - Durable Object storage is strongly consistent and lives with the object, which is what makes a counter safe here and not in Workers KV.
 - Values pass through untouched, as structured clones, so a `Date` or a `Map` survives. `undefined` is a removal.
 - `keys` lists everything the storage holds.
-- One `Silo` per object instance, disposed with it. `dispose` releases nothing and deletes nothing.
+- One `Silo` per object instance, disposed with it. `dispose` leaves the underlying data and client intact.
 - Nothing reports a change from outside the object, so there is no `observe`.
 - `available()` is `true` unless `available` is given a probe of the application's own, so a candidate list can be gated at construction.
 - The storage type is structural, so `@cloudflare/workers-types` or the types `wrangler types` generates both fit with no cast.

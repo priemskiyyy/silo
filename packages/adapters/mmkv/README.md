@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-mmkv
 
-[MMKV](https://github.com/mrousavy/react-native-mmkv) adapter for [silo](../../core): synchronous, JSON encoded persistence on the device, read in the calling frame, with changes made elsewhere in the application observed through MMKV's own listener.
+Use an existing MMKV instance as synchronous storage for [Silo](../../core).
 
 ## Installation
 
@@ -47,7 +47,7 @@ console.log(theme.get()); // "dark", read synchronously
 | Option      | Default      | Meaning                                                                                                                    |
 | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `storage`   | required     | An `MMKV` instance. Its id, encryption key and path are constructor options.                                               |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available` | `() => true` | Overrides the synchronous availability check.                                                                              |
 | `format`    | `JSON`       | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior

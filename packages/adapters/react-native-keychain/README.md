@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-react-native-keychain
 
-[react-native-keychain](https://github.com/oblador/react-native-keychain) adapter for [silo](../../core): asynchronous, JSON encoded persistence in the iOS keychain and the Android keystore, for the tokens and secrets a bare React Native app must not keep in plain storage. Expo apps use [`@priemskiyyy/silo-expo-secure-store`](../expo-secure-store) instead.
+Store [Silo](../../core) values through react-native-keychain. The application supplies the SDK and platform options.
 
 ## Installation
 
@@ -63,7 +63,7 @@ keychain({
 | `keychain`  | required              | The `react-native-keychain` module.                                                                                        |
 | `service`   | `{ prefix: "silo." }` | Every entry is one service named `${prefix}${encoded key}`.                                                                |
 | `options`   | none                  | `accessible`, `accessControl` and `authenticationPrompt`, forwarded to every call.                                         |
-| `available` | `() => true`          | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available` | `() => true`          | Overrides the synchronous availability check.                                                                              |
 | `format`    | `JSON`                | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior
@@ -74,7 +74,7 @@ keychain({
 - `keys` lists the services under the prefix, so a migration can enumerate this storage. Entries written by other libraries are not listed.
 - The module answers `false` instead of throwing when the platform refuses a write; the adapter turns that into a write error on the value's status.
 - iOS keychain items survive an uninstall. Remove what must not, through `remove` or a migration, before relying on a fresh install.
-- Nothing reports a change from outside the adapter, so there is no `observe`. `dispose` releases nothing and deletes nothing.
+- Nothing reports a change from outside the adapter, so there is no `observe`. `dispose` leaves the underlying data and client intact.
 - The key encoder uses `TextEncoder` and `TextDecoder`, which Hermes ships since React Native 0.74.
 
 ## License

@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-cookie
 
-Cookie adapter for [silo](../../core): synchronous, JSON encoded persistence in `document.cookie`, for the few values a server must see on every request, such as a theme or a locale. The cookie name is the physical key and the value its JSON, both URI encoded.
+Store [Silo](../../core) values in browser cookies. Configure cookie attributes and the text format per adapter.
 
 ## Installation
 
@@ -55,7 +55,7 @@ silo.value("theme").set("dark");
 - Without `maxAge` the cookie lasts the session. `maxAge` is in seconds.
 - A cookie holds about 4KB, and every cookie travels to the server with every request. Keep values small and few.
 - A write the browser drops in silence, over the size limit, `secure` on plain HTTP, or on a path the page is not under, is reported as a failed write, so the value's status says so instead of a reload losing it.
-- Values are JSON text, URI encoded. Pass `format: superjson` (or `devalue`, anything with `stringify` and `parse`) for values JSON cannot spell; changing the format over existing data is a migration. `available` overrides the platform probe, so a candidate list can be gated by a consent flag.
+- Values are JSON text, URI encoded. Pass `format: superjson` (or `devalue`, anything with `stringify` and `parse`) for values JSON cannot preserve; changing the format over existing data is a migration. `available` overrides the platform probe, so a candidate list can be gated by a consent flag.
 - `namespace` is `"visible"` by default: cookie names carry the store's namespace, `silo%3Atheme`, because the jar is shared with every other script on the site. `namespace: "hidden"` drops it for an application that owns its jar, and a storage's own `namespace` overrides both.
 - Nothing is observed: another tab's cookie writes are seen on the next reload, not live.
 - `keys()` lists every cookie the page can see, third party ones included. The core only reads its own namespace.

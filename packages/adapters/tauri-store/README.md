@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-tauri-store
 
-Tauri store adapter for [silo](../../core): asynchronous persistence in a `@tauri-apps/plugin-store` store, the file based key-value store of a Tauri desktop application. A change made from another window or from the Rust side arrives through the store's own `onChange`.
+Use an existing Tauri store plugin instance with [Silo](../../core), including its change notifications.
 
 ## Installation
 
@@ -34,10 +34,10 @@ const silo = new Silo({
 
 ## Options
 
-| Option      | Default      | Meaning                                                                                    |
-| ----------- | ------------ | ------------------------------------------------------------------------------------------ |
-| `store`     | required     | A loaded `Store` or a `LazyStore`.                                                         |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction. |
+| Option      | Default      | Meaning                                       |
+| ----------- | ------------ | --------------------------------------------- |
+| `store`     | required     | A loaded `Store` or a `LazyStore`.            |
+| `available` | `() => true` | Overrides the synchronous availability check. |
 
 ## Behavior
 

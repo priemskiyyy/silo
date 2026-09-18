@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-http
 
-HTTP adapter for [silo](../../core): asynchronous persistence against a REST key-value resource over `fetch`, for the values that must follow the user from one device to the next. It speaks a contract of its own, four routes under one base URL, which your server implements; it does not talk to an arbitrary API.
+Connect [Silo](../../core) to a server implementing the key-value HTTP routes below. Requests use fetch; this adapter does not wrap an arbitrary REST API.
 
 ## Installation
 

@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-unstorage
 
-[unstorage](https://unstorage.unjs.io) adapter for [silo](../../core): asynchronous persistence through any unstorage driver, from the filesystem and Redis to Cloudflare KV, Vercel KV, and the rest of its driver list.
+Use an existing unstorage instance with [Silo](../../core). The application configures its driver.
 
 ## Installation
 
@@ -40,10 +40,10 @@ await silo.value("theme").flush();
 
 ## Options
 
-| Option      | Default      | Meaning                                                                                    |
-| ----------- | ------------ | ------------------------------------------------------------------------------------------ |
-| `storage`   | required     | The unstorage instance, with its driver already mounted.                                   |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction. |
+| Option      | Default      | Meaning                                                  |
+| ----------- | ------------ | -------------------------------------------------------- |
+| `storage`   | required     | The unstorage instance, with its driver already mounted. |
+| `available` | `() => true` | Overrides the synchronous availability check.            |
 
 ## Behavior
 

@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-memory
 
-In-memory adapter for [silo](../../core): one `Map` of structured clones, with no platform behind it. It is the adapter to start with, the one tests run against, and the floor of every candidate list, so a store always lands on a backend that works.
+In-memory storage for [Silo](../../core), backed by a Map of structured clones. Use it for tests, temporary state, or an explicit fallback when persistence is optional.
 
 ## Installation
 
@@ -36,13 +36,13 @@ silo.value("theme").get(); // "dark"
 
 ## Options
 
-| Option      | Default      | Meaning                                                                                    |
-| ----------- | ------------ | ------------------------------------------------------------------------------------------ |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction. |
+| Option      | Default      | Meaning                                       |
+| ----------- | ------------ | --------------------------------------------- |
+| `available` | `() => true` | Overrides the synchronous availability check. |
 
 ## Behavior
 
-- Nothing persists: the store lives in the adapter, so it is gone on reload, on `dispose()`, and two `memory()` calls share nothing. Put it last in a candidate list, `[localStorage(), memory()]`, so it is the floor rather than the choice.
+- Nothing persists: the store lives in the adapter, so it is gone on reload, on `dispose()`, and two `memory()` calls share nothing. Put it last in a candidate list, `[localStorage(), memory()]`, so it is the fallback candidate.
 - Values pass through `structuredClone` on write and on read, so a `Date`, a `Map`, a `Set` or a typed array survives, a class instance comes back as a plain object, and a value the clone refuses, such as a function, fails the write. None of that is portable to the JSON adapters.
 - `native` is the `Map` itself, identity stable, so a test can seed it before hydration or assert against it after. Reading it bypasses the clone.
 - `keys` lists the `Map`. Nothing changes an in-process `Map` from outside, so there is no `observe`; `createMockAdapter` from `@priemskiyyy/silo/mock` drives that path in tests.

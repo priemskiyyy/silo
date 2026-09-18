@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-redis
 
-Redis adapter for [silo](../../core): asynchronous, JSON encoded persistence through the Redis client the application already connected, for a store that lives on the server.
+Persist [Silo](../../core) values through an existing Redis client. The application connects and closes the client.
 
 ## Installation
 
@@ -59,13 +59,13 @@ const client = new Redis({ url, token, automaticDeserialization: false });
 | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `client`    | required     | A connected `ioredis`, `redis` or `@upstash/redis` client. Only `get`, `set`, `del` and `keys` are typed.                  |
 | `match`     | `"*"`        | The pattern `keys()` lists. Pass the store's namespace on a shared Redis.                                                  |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available` | `() => true` | Overrides the synchronous availability check.                                                                              |
 | `format`    | `JSON`       | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior
 
 - The store is one namespace inside a shared Redis. `keys()` runs `KEYS` with `match`, which defaults to `*` and walks the whole keyspace, so pass the namespace, `match: "silo:*"` for the default one, and a migration only ever sees the store's own keys.
-- Upstash must be created with `automaticDeserialization: false`. Otherwise its `get` parses stored JSON itself and hands back an object where the adapter expects the text.
+- Upstash must be created with `automaticDeserialization: false`. Otherwise its `get` parses stored JSON itself and returns an object where the adapter expects the text.
 - The client is handed over, so this package imports nothing from it and types only the four methods it calls: `get`, `set`, `del` and `keys`. The application connects the client and quits it; `dispose` releases nothing and keeps the data.
 - Values are text: `JSON` by default, or the `format` you pass, which is anything with `stringify` and `parse`, so `superjson` and `devalue` drop in. Anything the format cannot express does not survive, and `undefined` is a removal. Changing the format over existing data is a migration, since the stored text stays what the old format wrote. A stored string the format cannot parse rejects on read, which the core reports as a hydrate error and leaves in place for `set` to overwrite.
 - `available` defaults to `() => true` because the client was handed over. Pass your own probe to gate this candidate on application state at construction, so a list such as `[redis(...), memory()]` falls through when it answers `false`.

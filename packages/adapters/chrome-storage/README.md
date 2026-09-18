@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-chrome-storage
 
-`chrome.storage` adapter for [silo](../../core): asynchronous persistence in one storage area of a browser extension, with changes made in other extension contexts observed through the area's `onChanged`. The area is handed over, so the same adapter serves `local`, `sync` and `session`.
+Use a browser extension storage area with [Silo](../../core). Pass the storage area to the adapter; it subscribes to the area's change events.
 
 ## Installation
 
@@ -35,10 +35,10 @@ await silo.value("theme").hydrated();
 
 ## Options
 
-| Option      | Default      | Meaning                                                                                    |
-| ----------- | ------------ | ------------------------------------------------------------------------------------------ |
-| `area`      | required     | `chrome.storage.local`, `sync` or `session`. Firefox's `browser.storage` areas fit too.    |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction. |
+| Option      | Default      | Meaning                                                                                 |
+| ----------- | ------------ | --------------------------------------------------------------------------------------- |
+| `area`      | required     | `chrome.storage.local`, `sync` or `session`. Firefox's `browser.storage` areas fit too. |
+| `available` | `() => true` | Overrides the synchronous availability check.                                           |
 
 ## Behavior
 

@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-json-file
 
-JSON file adapter for [silo](../../core): synchronous persistence in one file on disk, for Node command line tools, scripts, and Electron's main process, where no browser storage exists.
+Persist [Silo](../../core) values in a JSON file using synchronous Node filesystem operations.
 
 ## Installation
 
@@ -39,7 +39,7 @@ console.log(silo.value("theme").get()); // "dark", read synchronously
 | Option      | Default      | Meaning                                                                                      |
 | ----------- | ------------ | -------------------------------------------------------------------------------------------- |
 | `path`      | required     | Resolved against the working directory. Created on the first write, parent folders included. |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.   |
+| `available` | `() => true` | Overrides the synchronous availability check.                                                |
 
 ## Behavior
 

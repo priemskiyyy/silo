@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-search-params
 
-URL adapter for [silo](../../core): every key is one parameter of the page's query string, or of its fragment, so a value is a shareable link and survives a reload. Writes go through `history.replaceState`, so nothing navigates, and back or forward is observed.
+Keep [Silo](../../core) values in the URL query or fragment. Writes update the current history entry without navigation.
 
 ## Installation
 
@@ -17,10 +17,13 @@ pnpm add @priemskiyyy/silo @priemskiyyy/silo-search-params @priemskiyyy/silo-mem
 Use it as a named storage next to a durable default:
 
 ```ts
+import { z } from "zod";
 import { Silo, value } from "@priemskiyyy/silo";
 import { localStorage } from "@priemskiyyy/silo-local-storage";
 import { memory } from "@priemskiyyy/silo-memory";
 import { searchParams } from "@priemskiyyy/silo-search-params";
+
+const FilterSchema = z.enum(["all", "open", "done"]);
 
 const silo = new Silo({
   storages: {

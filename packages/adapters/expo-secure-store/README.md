@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-expo-secure-store
 
-[Expo SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/) adapter for [silo](../../core): asynchronous, JSON encoded persistence in the iOS keychain and the Android keystore, for the tokens and secrets an application must not keep in plain storage.
+Store [Silo](../../core) values through Expo SecureStore. Pass the SDK module and any authentication options from your application.
 
 ## Installation
 
@@ -55,7 +55,7 @@ secureStore({
 | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `store`     | required     | The `expo-secure-store` module.                                                                                            |
 | `options`   | none         | `keychainService`, `requireAuthentication` and `authenticationPrompt`, forwarded to every call.                            |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available` | `() => true` | Overrides the synchronous availability check.                                                                              |
 | `format`    | `JSON`       | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior
@@ -65,7 +65,7 @@ secureStore({
 - SecureStore accepts only `[A-Za-z0-9._-]` in a key, so every physical key reaches the module as the unpadded base64url of its UTF-8 bytes. A key written by another library under its own name is not visible through this adapter.
 - SecureStore cannot list what it holds, so the adapter has no `keys` and a migration cannot enumerate this storage. `copy`, `move` and `rename` still work on keys a migration names.
 - Nothing reports a change from outside the adapter, so there is no `observe`.
-- `dispose` releases nothing and deletes nothing: the keychain outlives the adapter.
+- `dispose` leaves the underlying data and client intact: the keychain outlives the adapter.
 - The key encoder uses `TextEncoder`, which Hermes ships since React Native 0.74 (Expo SDK 51).
 
 ## License

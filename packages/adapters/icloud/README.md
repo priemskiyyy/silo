@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-icloud
 
-iCloud key-value store adapter for [silo](../../core) through [react-native-cloud-store](https://github.com/farmerpsyche/react-native-cloud-store): asynchronous, JSON encoded, and following the Apple ID across the user's devices. A change made on an iPhone reaches the same value on the iPad when iCloud delivers it. This is the experimental adapter of the set.
+Use an iCloud key-value module with [Silo](../../core). This adapter is experimental; test synchronization and account behavior on your target devices.
 
 ## Installation
 
@@ -16,7 +16,7 @@ Enable the iCloud capability with the key-value store in the app's entitlements.
 
 ## Create a silo
 
-The module is iOS only, so the adapter is listed first with `available` set from the platform, and MMKV is the floor Android lands on.
+The module is iOS only, so the adapter is listed first with `available` set from the platform, and MMKV is the Android fallback.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";

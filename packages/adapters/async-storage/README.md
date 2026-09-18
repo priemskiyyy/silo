@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-async-storage
 
-[AsyncStorage](https://react-native-async-storage.github.io/async-storage/) adapter for [silo](../../core): asynchronous, JSON encoded persistence on the device through `@react-native-async-storage/async-storage`.
+Use React Native AsyncStorage with [Silo](../../core). Pass the SDK instance from your application.
 
 ## Installation
 
@@ -42,7 +42,7 @@ console.log(theme.get()); // the persisted value, or "light"
 | Option      | Default      | Meaning                                                                                                                    |
 | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `storage`   | required     | The module's default export. Only `getItem`, `setItem`, `removeItem` and `getAllKeys` are typed.                           |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available` | `() => true` | Overrides the synchronous availability check.                                                                              |
 | `format`    | `JSON`       | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior

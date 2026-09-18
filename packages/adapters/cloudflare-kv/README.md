@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-cloudflare-kv
 
-[Workers KV](https://developers.cloudflare.com/kv/) adapter for [silo](../../core), with no dependencies: one KV namespace binding, JSON values, one key per entry.
+Persist [Silo](../../core) values in a Cloudflare KV namespace supplied by the application.
 
 ## Installation
 
@@ -54,7 +54,7 @@ export default {
 | Option      | Default      | Meaning                                                                                                                    |
 | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `namespace` | required     | The KV binding the Worker was given.                                                                                       |
-| `available` | `() => true` | Replaces the probe, so a candidate list can be gated by application state at construction.                                 |
+| `available` | `() => true` | Overrides the synchronous availability check.                                                                              |
 | `format`    | `JSON`       | How values become text and back. `superjson` and `devalue` fit as they are; changing it over existing data is a migration. |
 
 ## Behavior
@@ -63,7 +63,7 @@ export default {
 - Values are text: `JSON` by default, or the `format` you pass, which is anything with `stringify` and `parse`, so `superjson` and `devalue` drop in. Anything the format cannot express does not survive, and `undefined` is a removal. Changing the format over existing data is a migration, since the stored text stays what the old format wrote. Values are read back in text mode, because only text tells a stored `null` from an absent key.
 - `available` defaults to `() => true` because the binding was handed over. Pass your own probe to gate this candidate on application state at construction, so a list such as `[cloudflareKv(...), memory()]` falls through when it answers `false`.
 - `keys` lists everything the namespace holds, walking every page of `list`.
-- One `Silo` per request, disposed when done. `dispose` releases nothing and deletes nothing.
+- One `Silo` per request, disposed when done. `dispose` leaves the underlying data and client intact.
 - Nothing reports a change from another edge, so there is no `observe`.
 - The binding type is structural, so `@cloudflare/workers-types` or the types `wrangler types` generates both fit with no cast.
 

@@ -4,7 +4,7 @@
 
 # @priemskiyyy/silo-simulcast
 
-Live change notifications for any [silo](../../core) storage adapter, delivered over a [simulcast](https://priemskiyyy.github.io/simulcast/) channel. Wrap the adapter that holds the data, hand the bridge a channel, and a value written on one device updates on every other device that holds the same key, in place, through the same `subscribe` and hooks the value already has.
+Add live change notifications to a [Silo](../../core) adapter through a Simulcast channel. The wrapped adapter remains responsible for storing values.
 
 Silo owns what is stored and how it is read; simulcast owns the realtime subscription, over whichever provider the application already runs on: Ably, Pusher, Centrifugo, Supabase, Phoenix, MQTT, PartyKit, Socket.IO, a plain WebSocket, server-sent events, or a `BroadcastChannel` between tabs.
 
@@ -62,7 +62,7 @@ The bridge keeps the wrapped adapter's mode: over `http` it is asynchronous, ove
 ## How it works
 
 1. A write goes to the wrapped adapter and is durable once that adapter says so. The bridge adds nothing to the write path.
-2. Someone announces the change on the channel as `{ key, value }`. The natural announcer is the server that stored the value: it knows the write happened and publishes once for every client. For a setup without a server in the loop, such as `localStorage` plus a `BroadcastChannel` provider, pass `publish` and the bridge announces this device's own writes after each one lands.
+2. Someone announces the change on the channel as `{ key, value }`. The natural announcer is the server that stored the value: it knows the write happened and publishes once for every client. For a setup without a server in the loop, such as `localStorage` plus a `BroadcastChannel` provider, pass `publish` and the bridge announces this device's own writes after each write completes.
 3. Every other device's silo is subscribed to the channel through the bridge's `observe`. A publication arrives as an outside change: the value's snapshot updates, its subscribers are notified, and nothing is re-read.
 4. The device that wrote hears its own announcement too. The core drops it while a local write is pending. A later echo is processed as an external change and can notify again for a new object reference.
 
@@ -82,17 +82,17 @@ The key is the physical key silo composed (`namespace:scope:key`), exactly as th
 
 ## Options
 
-| Option      | Default               | Meaning                                                                                            |
-| ----------- | --------------------- | -------------------------------------------------------------------------------------------------- |
-| `adapter`   | required              | The adapter that holds the data. Its mode, `native` and `keys` are the bridge's.                   |
-| `channel`   | required              | Anything with `subscribe(onPublication)` returning a stop; `realtime.channel(name)` fits as it is. |
-| `publish`   | none                  | Announces this device's own writes after each one lands, for a setup where the server does not.    |
-| `available` | the wrapped adapter's | Replaces the probe.                                                                                |
+| Option      | Default               | Meaning                                                                                               |
+| ----------- | --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `adapter`   | required              | The adapter that holds the data. Its mode, `native` and `keys` are the bridge's.                      |
+| `channel`   | required              | Anything with `subscribe(onPublication)` returning a stop; `realtime.channel(name)` fits as it is.    |
+| `publish`   | none                  | Announces this device's own writes after each write completes, for a setup where the server does not. |
+| `available` | the wrapped adapter's | Replaces the probe.                                                                                   |
 
 ## Behavior
 
 - The bridge depends on nothing at runtime. The channel is typed structurally as `{ subscribe }`, which `realtime.channel(name)` satisfies as it is.
-- `publish` runs after a write has landed and never before; a write that failed announces nothing. A `publish` that throws or rejects is dropped, because the data is durable and the write must not report otherwise.
+- `publish` runs after a write has completed and never before; a write that failed announces nothing. A `publish` that throws or rejects is dropped, because the data is durable and the write must not report otherwise.
 - The bridge does not reload records on reconnect. Use transport replay where available, or release affected scopes and acquire fresh handles after their consumers stop. A `{ key: null }` report also reloads existing records that have no pending local write.
 - `dispose` releases every observer the bridge registered, then disposes the wrapped adapter. The channel and the `RealtimeClient` belong to the application.
 - `available()` is the wrapped adapter's unless `available` is given a probe of the application's own, so a candidate list can be gated at construction.
