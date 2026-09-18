@@ -5,16 +5,19 @@ description: "React hooks for typed persistence: SiloProvider, useValue, useValu
 # React hooks
 
 ```sh
-pnpm add @priemskiyyy/silo @priemskiyyy/silo-react
+pnpm add @priemskiyyy/silo @priemskiyyy/silo-react @priemskiyyy/silo-local-storage @priemskiyyy/silo-memory zod
 ```
 
-The binding holds no persistence logic. It publishes one store through context
-and reads its observable values through `useSyncExternalStore`, so a persisted
-value renders the way component state does. React 19.2 or newer is required,
-because the change callbacks are built on `useEffectEvent`.
+Requires React 19.2 or newer. `useValue` returns the current value and a setter;
+`useValueStatus` reports loading and storage errors.
 
-Every hook requires a `SiloProvider` above it and throws
-`Silo hooks must be used within a SiloProvider.` when there is none.
+Pass a typed value handle directly, or use a key under `SiloProvider`.
+Handle calls infer their types without a provider or registration. The other
+hooks read the provider's store and require that provider.
+
+For a short example, start with [Getting started](getting-started.md). If the
+application renders on a server, use a [status placeholder and a store per
+request](server-rendering.md).
 
 | Export                                  | Returns                        | Starts hydration | Rerenders on a value change |
 | --------------------------------------- | ------------------------------ | ---------------- | --------------------------- |
@@ -27,9 +30,9 @@ Every hook requires a `SiloProvider` above it and throws
 | [`useNativeStorage`](#usenativestorage) | native handles by storage name | no               | no                          |
 | [`Register`](#register)                 | types for all of the above     |                  |                             |
 
-"Starts hydration" is what the core calls demand: reaching a value creates its
-record and issues its first read. Observing the store's status, a scope, or a
-native handle reads nothing.
+The hydration column describes key-based calls. Passing an existing handle
+subscribes to its existing record. Store status, scopes, and native access do not
+load values.
 
 ## A complete setup
 
@@ -44,17 +47,18 @@ import {
 } from "@priemskiyyy/silo-react";
 import type { PropsWithChildren } from "react";
 
-type Theme = "light" | "dark";
+import { z } from "zod";
+
+const ThemeSchema = z.enum(["light", "dark"]);
+const UserSchema = z.object({ name: z.string() });
 
 export const silo = new Silo({
   storages: {
     default: {
-      // localStorage when the browser allows it, memory otherwise, so the
-      // store constructs in a private window and on the server alike.
       adapters: [localStorageAdapter(), memory()],
       schema: {
-        theme: value<Theme>({ fallback: "light" }),
-        user: value<{ name: string }>(),
+        theme: value({ schema: ThemeSchema, fallback: "light" }),
+        user: value({ schema: UserSchema }),
       },
     },
   },
@@ -72,7 +76,6 @@ export const Providers = ({ children }: PropsWithChildren) => (
 );
 
 export const ThemeToggle = () => {
-  // Theme, never Theme | undefined, because the key declares a fallback.
   const [theme, setTheme] = useValue("theme");
   const status = useValueStatus("theme");
 
@@ -92,17 +95,16 @@ export const ThemeToggle = () => {
 };
 
 export const Greeting = () => {
-  // { name: string } | undefined: no fallback was declared.
   const [user] = useValue("user");
 
   return <p>{user === undefined ? "Welcome" : `Welcome back, ${user.name}`}</p>;
 };
 ```
 
-The store owns its own lifetime. Mounting the provider persists nothing and
-unmounting it discards nothing. Whoever constructed the store calls `dispose()`,
-which in a browser application is usually nobody, because the store lives as
-long as the page.
+This module-level store is for a browser application. For SSR, use a
+[factory per request](server-rendering.md). Mounting or unmounting a provider does
+not dispose the store or release its scopes; the application manages that
+lifecycle.
 
 ## SiloProvider
 
@@ -116,10 +118,10 @@ type SiloProviderProps = PropsWithChildren<{
 }>;
 ```
 
-| Prop    | Meaning                                                                                                                                                                                         |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `silo`  | The store every hook below reads. Construct it once, at module scope in a browser application, never inside a component, where each render would build a new one.                               |
-| `scope` | A segment such as `users:7`. The value hooks below read under that [scope](scopes.md); omitted or `undefined`, they read the root, so a value that is only sometimes known can be passed as is. |
+| Prop    | Meaning                                                                                                                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `silo`  | The store every hook below reads. Construct it once, at module scope in a browser application, never inside a component, where each render would build a new one.                                |
+| `scope` | A segment such as `users:7`. Key-based value hooks below read under that [scope](scopes.md); omitted or `undefined`, they read the root. Wait for required IDs before mounting scoped consumers. |
 
 Changing `scope` re-points every value hook under the provider at another
 keyspace without remounting them. Providers nest: an inner one with a `scope`
@@ -169,7 +171,7 @@ setCount((previous) => previous + 1);
 ```
 
 Updaters run synchronously against the latest core snapshot, so consecutive
-calls compose before React rerenders, and an external change that landed in
+calls compose before React rerenders, and an external change that arrived in
 between is read by the next updater. During hydration that snapshot may still be
 the fallback; a local update supersedes the pending read. None of this makes a
 read-modify-write atomic across tabs or across stores.
@@ -205,7 +207,7 @@ export const ThemeSync = () => {
 What the first render carries depends on the storage's adapter. A synchronous
 adapter such as `localStorage()` has the persisted value on the very first
 render. An asynchronous one such as `indexedDb()` renders the fallback first and
-swaps in the persisted value when hydration lands. Gate on
+swaps in the persisted value when hydration completes. Gate on
 [`useValueStatus`](#usevaluestatus) when that first frame matters, and see
 [Synchronous and asynchronous](sync-vs-async.md) for why the split exists.
 
@@ -213,14 +215,35 @@ A refused write surfaces in the value's status, never as a throw from the
 setter; the value you set stays on screen. Codec errors on encode reach the
 caller. See [Errors and recovery](errors-and-recovery.md).
 
+## Explicit value handles
+
+`useValue(handle)` and `useValueStatus(handle)` select that exact value, independently
+of the provider's scope. A handle carries its own value type, so these calls need
+neither `Register` nor a provider. Existing key calls continue to use provider
+scope and optional `Register` typing.
+
+```tsx
+const workspace = silo.scope(`workspaces:${workspaceId}`);
+const [theme, setTheme] = useValue(workspace.value("theme"));
+const status = useValueStatus(workspace.value("theme"));
+```
+
+Changing the handle retargets the subscription and setter. The binding only
+unsubscribes from the old handle; the application still owns scope release.
+Mix root, workspace, and user handles in the same component as needed.
+
+A missing handle is a type error and is rejected at runtime. Mount the scoped
+component after its required IDs exist; do not substitute an undefined provider
+scope, which selects root storage. [Scopes](scopes.md#in-react) covers this pattern.
+
 ## useValueStatus
 
 ```ts
-import type { ValueStatus } from "@priemskiyyy/silo";
+import type { SiloValue, ValueStatus } from "@priemskiyyy/silo";
 import type { RegisteredKey } from "@priemskiyyy/silo-react";
 
 useValueStatus(
-  key: RegisteredKey,
+  source: RegisteredKey | Pick<SiloValue<unknown>, "status">,
   onChange?: (status: ValueStatus) => void | Promise<unknown>,
 ): ValueStatus
 ```
@@ -229,18 +252,20 @@ useValueStatus(
 type ValueStatus =
   | { state: "hydrating" }
   | { state: "ready" }
-  | { state: "error"; error: { phase: "hydrate" | "write"; cause: unknown } };
+  | {
+      state: "error";
+      error: { phase: "hydrate" | "read" | "write"; cause: unknown };
+    };
 ```
 
 Observes one value's progress without reading the value. Nothing here
 subscribes to the snapshot, so a component that only watches status does not
 rerender when the value changes.
 
-It does still reach the value, and reaching a value is what starts its
-hydration. `status.get()` and `status.subscribe()` add nothing, but finding the
-status means calling `scope.value(key)`, which creates the record and issues the
-read. A component that watches status alone still causes exactly one read of
-that key.
+Passing a key reaches the value, which starts its hydration. `status.get()` and
+`status.subscribe()` add nothing, but resolving the key calls `scope.value(key)`,
+which creates the record and issues the read. Passing a handle observes its
+existing status without acquiring another value.
 
 `error.phase` says which side failed. A `hydrate` error means the stored raw
 value could not be read or decoded; it is still on disk, untouched, and

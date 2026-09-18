@@ -7,7 +7,7 @@ description: "Solid bindings for Silo: typed values, reactive scopes, status, an
 Requires Solid 1.9 or newer in the Solid 1 line.
 
 ```sh
-pnpm add @priemskiyyy/silo @priemskiyyy/silo-solid @priemskiyyy/silo-local-storage
+pnpm add @priemskiyyy/silo @priemskiyyy/silo-solid @priemskiyyy/silo-local-storage zod
 ```
 
 ## Register your store
@@ -16,12 +16,15 @@ pnpm add @priemskiyyy/silo @priemskiyyy/silo-solid @priemskiyyy/silo-local-stora
 // storage.ts
 import { Silo, value } from "@priemskiyyy/silo";
 import { localStorage } from "@priemskiyyy/silo-local-storage";
+import { z } from "zod";
+
+const ThemeSchema = z.enum(["light", "dark"]);
 
 export const silo = new Silo({
   storages: {
     default: {
       adapters: [localStorage()],
-      schema: { theme: value<"light" | "dark">({ fallback: "light" }) },
+      schema: { theme: value({ schema: ThemeSchema, fallback: "light" }) },
     },
   },
 });
@@ -86,6 +89,31 @@ pending read. Separate tabs or Silo instances do not share an atomic update.
 Wrap function values: `setCallback(() => callback)`. Pass `undefined`, or return
 it from an updater, to remove an optional value. An updater that throws leaves
 the value unchanged and passes its error to the caller.
+
+## Explicit value handles
+
+Pass a `SiloValue` to `useValue` or `useValueStatus` to select its scope explicitly.
+Handles infer their types without `Register` and work without a provider. Use a
+getter for a handle that changes with an ID:
+
+```ts
+const [theme, setTheme] = useValue(() =>
+  silo.scope(`workspaces:${props.workspaceId}`).value("theme"),
+);
+const status = useValueStatus(() =>
+  silo.scope(`workspaces:${props.workspaceId}`).value("theme"),
+);
+```
+
+The getter tracks the ID and retargets subscriptions and writes when it changes.
+Root, workspace, and user handles can be used together in one component. The
+binding unsubscribes when a handle changes or its consumer unmounts; the application
+owns scope release.
+
+Wait for required IDs before mounting a scoped consumer. A missing handle is
+rejected, while an undefined provider scope selects root storage. See
+[Scopes](scopes.md#in-react) for lifecycle details and
+[existing storage keys](storages.md#existing-storage-keys) for legacy key mapping.
 
 ## Shared API
 

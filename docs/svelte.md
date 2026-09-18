@@ -7,7 +7,7 @@ description: "Svelte bindings for Silo: typed values, reactive scopes, status, a
 Requires Svelte 5.7 or newer in the Svelte 5 line.
 
 ```sh
-pnpm add @priemskiyyy/silo @priemskiyyy/silo-svelte @priemskiyyy/silo-local-storage
+pnpm add @priemskiyyy/silo @priemskiyyy/silo-svelte @priemskiyyy/silo-local-storage zod
 ```
 
 ## Register your store
@@ -16,12 +16,15 @@ pnpm add @priemskiyyy/silo @priemskiyyy/silo-svelte @priemskiyyy/silo-local-stor
 // storage.ts
 import { Silo, value } from "@priemskiyyy/silo";
 import { localStorage } from "@priemskiyyy/silo-local-storage";
+import { z } from "zod";
+
+const ThemeSchema = z.enum(["light", "dark"]);
 
 export const silo = new Silo({
   storages: {
     default: {
       adapters: [localStorage()],
-      schema: { theme: value<"light" | "dark">({ fallback: "light" }) },
+      schema: { theme: value({ schema: ThemeSchema, fallback: "light" }) },
     },
   },
 });
@@ -88,6 +91,31 @@ Each read sees the latest core snapshot, so consecutive assignments compose
 before the next render. During hydration that may be the fallback; a local write
 supersedes the pending read. Function assignments remain stored values:
 `callback.current = handler`.
+
+## Explicit value handles
+
+Pass a `SiloValue` to `useValue` or `useValueStatus` to select its scope explicitly.
+Handles infer their types without `Register` and work without a provider. Use a
+getter for a handle that changes with an ID:
+
+```ts
+const theme = useValue(() =>
+  silo.scope(`workspaces:${workspaceId}`).value("theme"),
+);
+const status = useValueStatus(() =>
+  silo.scope(`workspaces:${workspaceId}`).value("theme"),
+);
+```
+
+The getter tracks the ID and retargets subscriptions and writes when it changes.
+Root, workspace, and user handles can be used together in one component. The
+binding unsubscribes when a handle changes or its consumer unmounts; the application
+owns scope release.
+
+Wait for required IDs before mounting a scoped consumer. A missing handle is
+rejected, while an undefined provider scope selects root storage. See
+[Scopes](scopes.md#in-react) for lifecycle details and
+[existing storage keys](storages.md#existing-storage-keys) for legacy key mapping.
 
 ## Shared API
 
