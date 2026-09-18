@@ -81,10 +81,10 @@ const syncTextStorageAdapter = <TNative>(
     available: () => mapping.available(),
     ...(keyspace === undefined ? {} : { keyspace }),
     dispose: () => mapping.dispose(),
-    ...(typeof keys !== "function" ? {} : { keys: () => keys() }),
+    ...(typeof keys !== "function" ? {} : { keys: () => keys.call(mapping) }),
     ...(typeof observe !== "function"
       ? {}
-      : { observe: decodeReports(format, observe) }),
+      : { observe: decodeReports(format, observe.bind(mapping)) }),
   });
 };
 
@@ -117,10 +117,10 @@ const asyncTextStorageAdapter = <TNative>(
     available: () => mapping.available(),
     ...(keyspace === undefined ? {} : { keyspace }),
     dispose: () => mapping.dispose(),
-    ...(typeof keys !== "function" ? {} : { keys: () => keys() }),
+    ...(typeof keys !== "function" ? {} : { keys: () => keys.call(mapping) }),
     ...(typeof observe !== "function"
       ? {}
-      : { observe: decodeReports(format, observe) }),
+      : { observe: decodeReports(format, observe.bind(mapping)) }),
   });
 };
 

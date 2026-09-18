@@ -90,6 +90,46 @@ test("an absent observe or keys stays absent rather than becoming undefined", ()
   expect("keys" in createStorageAdapter(provider.sync)).toBe(true);
 });
 
+test.each(["sync", "async"])(
+  "optional methods keep their mapping receiver (%s)",
+  async (mode) => {
+    const provider = mapping();
+    provider.store.set("theme", "dark");
+    const methods = {
+      native: provider.store,
+      keys() {
+        return [...this.native.keys()];
+      },
+      observe(listener: (change: StorageChange) => void) {
+        listener({ key: "theme", value: this.native.get("theme") });
+        return provider.stop;
+      },
+    };
+    const asynchronous = {
+      ...provider.async,
+      ...methods,
+      async keys() {
+        return [...this.native.keys()];
+      },
+    };
+    const adapter =
+      mode === "async"
+        ? createStorageAdapter(asynchronous)
+        : createStorageAdapter({ ...provider.sync, ...methods });
+    const listener = vi.fn();
+
+    expect(await adapter.keys?.()).toEqual(["theme"]);
+    const stop = adapter.observe?.(listener);
+    expect(listener).toHaveBeenCalledExactlyOnceWith({
+      key: "theme",
+      value: "dark",
+    });
+    stop?.();
+    expect(provider.stop).toHaveBeenCalledOnce();
+    adapter.dispose();
+  },
+);
+
 test("keys passes through and is refused after dispose", () => {
   const provider = mapping();
   const adapter = createStorageAdapter(provider.sync);

@@ -188,6 +188,47 @@ test("keys and observe stay absent when the mapping has none", () => {
   expect("observe" in adapter).toBe(false);
 });
 
+test.each(["sync", "async"])(
+  "optional methods keep their text mapping receiver (%s)",
+  async (mode) => {
+    const backend = textBackend();
+    backend.store.set("theme", '"dark"');
+    const unsubscribe = vi.fn();
+    const methods = {
+      native: backend.sync.native,
+      keys() {
+        return [...this.native.store.keys()];
+      },
+      observe(listener: (change: TextStorageChange) => void) {
+        listener({ key: "theme", text: this.native.store.get("theme") });
+        return unsubscribe;
+      },
+    };
+    const asynchronous = {
+      ...backend.async,
+      ...methods,
+      async keys() {
+        return [...this.native.store.keys()];
+      },
+    };
+    const adapter =
+      mode === "async"
+        ? createTextStorageAdapter(asynchronous)
+        : createTextStorageAdapter({ ...backend.sync, ...methods });
+    const listener = vi.fn();
+
+    expect(await adapter.keys?.()).toEqual(["theme"]);
+    const stop = adapter.observe?.(listener);
+    expect(listener).toHaveBeenCalledExactlyOnceWith({
+      key: "theme",
+      value: "dark",
+    });
+    stop?.();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    adapter.dispose();
+  },
+);
+
 test("dispose reaches the mapping once", () => {
   const backend = textBackend();
   const adapter = createTextStorageAdapter(backend.sync);

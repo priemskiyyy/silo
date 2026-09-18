@@ -104,14 +104,14 @@ export const createStorageAdapter: CreateStorageAdapter = <
           keys: () => {
             assertLive("list keys");
 
-            return keys();
+            return keys.call(adapter);
           },
         }),
     ...(typeof observe !== "function"
       ? {}
       : {
           observe: (listener: (change: StorageChange) => void) =>
-            observe((change) => {
+            observe.call(adapter, (change) => {
               // A change already in flight at dispose must not reach a
               // consumer that has dropped its own listeners.
               if (disposed) {
