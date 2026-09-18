@@ -17,3 +17,8 @@ docs/.vitepress/cache/
 
 # pnpm store created by the packed-consumer check
 .pnpm-store/
+
+# Local Expo state and generated native projects
+.expo/
+examples/expo/ios/
+examples/expo/android/

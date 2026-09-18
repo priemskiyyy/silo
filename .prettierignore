@@ -10,3 +10,5 @@ docs/.vitepress/cache
 # The authoring brief, not shipped code: formatting it would rewrite the
 # normative type sketches inside its fenced blocks.
 .silo-decisions.md
+
+.expo

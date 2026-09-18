@@ -1,0 +1,47 @@
+{
+  "name": "example-expo",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "dev": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "web": "expo start --web",
+    "build": "expo export --platform web --output-dir dist",
+    "build:native": "expo export --platform ios --platform android --output-dir ../../.artifacts/expo-native",
+    "lint:typescript": "tsc --noEmit -p .",
+    "check:dependencies": "expo install --check"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "57.0.16",
+    "@priemskiyyy/silo": "workspace:*",
+    "@priemskiyyy/silo-async-storage": "workspace:*",
+    "@priemskiyyy/silo-expo-secure-store": "workspace:*",
+    "@priemskiyyy/silo-memory": "workspace:*",
+    "@priemskiyyy/silo-react": "workspace:*",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "57.0.24",
+    "expo-secure-store": "57.0.4",
+    "expo-status-bar": "57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "0.21.2",
+    "uniwind": "1.12.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.8.3"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "typescript"
+      ]
+    }
+  }
+}

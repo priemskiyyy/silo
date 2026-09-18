@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Silo Fieldbook",
+    "slug": "silo-fieldbook",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "silo-fieldbook",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": ["expo-secure-store"],
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/icon.png"
+    },
+    "icon": "./assets/icon.png"
+  }
+}

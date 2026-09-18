@@ -10,3 +10,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - "@priemskiyyy/simulcast@0.4.0"
   - "@priemskiyyy/simulcast-broadcast-channel@0.4.0"
+  - "@expo/cli@57.0.26"
+  - "@expo/metro-runtime@57.0.16"
+  - expo-asset@57.0.18
+  - expo-constants@57.0.19
+  - expo@57.0.24
