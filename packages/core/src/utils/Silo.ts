@@ -55,8 +55,7 @@ export class Silo<TStorages extends Storages = Storages> {
       const storages = new AcquiredStorages(options.storages);
       this.#lifetime.add(storages.dispose);
       const { backends, native } = storages;
-      // After the winners are known: the medium that won has a say in the
-      // namespace, and a bad key still undoes the acquisition.
+      // Namespace selection depends on the chosen adapter.
       const keyspaces = createKeyspaces({
         storages: options.storages,
         adapters: backends,

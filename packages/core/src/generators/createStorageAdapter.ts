@@ -3,11 +3,7 @@ import type { StorageAdapterShape } from "src/types/StorageAdapterShape";
 import type { StorageChange } from "src/types/StorageChange";
 import type { SyncStorageAdapter } from "src/types/SyncStorageAdapter";
 
-// Overloaded call signatures on a type alias rather than `function` overloads:
-// an arrow still satisfies them. A single generic over `StorageAdapter` loses
-// the mode and the native type on the way out, and the implementation is
-// written over the shape both contracts derive from, so it forwards every
-// member without narrowing `mode` and without a cast.
+// Overloaded signatures preserve mode and native types without a cast.
 type CreateStorageAdapter = {
   <TNative>(adapter: SyncStorageAdapter<TNative>): SyncStorageAdapter<TNative>;
   <TNative>(
@@ -58,8 +54,6 @@ export const createStorageAdapter: CreateStorageAdapter = <
     );
   };
 
-  // Captured so the guards narrow inside the wrappers, and absent stays
-  // absent: `keys: undefined` is not an optional member.
   const keys = adapter.keys;
   const observe = adapter.observe;
   const keyspace = adapter.keyspace;
@@ -67,22 +61,21 @@ export const createStorageAdapter: CreateStorageAdapter = <
   return {
     mode: adapter.mode,
     name: adapter.name,
-    // An accessor, so an adapter that resolves its platform lazily is not
-    // made to read it here.
+    // Keep lazy platform resolution lazy.
     get native() {
       return adapter.native;
     },
-    get: (key: string) => {
+    get: (key) => {
       assertLive(`read "${key}"`);
 
       return adapter.get(key);
     },
-    set: (key: string, value: unknown) => {
+    set: (key, value) => {
       assertLive(`write "${key}"`);
 
       return adapter.set(key, value);
     },
-    remove: (key: string) => {
+    remove: (key) => {
       assertLive(`remove "${key}"`);
 
       return adapter.remove(key);

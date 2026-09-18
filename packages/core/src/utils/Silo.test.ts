@@ -221,8 +221,6 @@ test("clear removes every declared key at its own scope and resolves as a barrie
   expect(settled).toHaveBeenCalledTimes(1);
   expect([...mock.store.keys()]).toEqual([
     "silo:visits",
-    // ponytail: schema driven, so a key an older schema wrote at this scope
-    // survives. A migration over `store.keys()` is where it gets removed.
     "silo:users:7:legacy",
   ]);
   expect(account.value("visits").get()).toBe(0);

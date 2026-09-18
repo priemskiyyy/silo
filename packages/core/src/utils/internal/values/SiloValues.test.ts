@@ -630,9 +630,6 @@ test("a write already in flight at dispose still reaches the adapter", async () 
   await Promise.resolve();
 
   expect(mock.store.get("silo:visits")).toBe(7);
-  // ponytail: a write still queued behind that one does not reach the adapter,
-  // because sending it now would reorder the two. `await silo.flush()` before
-  // disposing is the answer until the pipeline can drain synchronously.
 });
 
 test("an expired value reads as absent and schedules its own deletion", async () => {

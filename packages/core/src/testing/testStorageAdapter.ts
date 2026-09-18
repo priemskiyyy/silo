@@ -39,9 +39,7 @@ const JSON_SAFE_VALUES = {
   "nested object": { nested: { deep: [true, null] } },
 } satisfies Record<string, unknown>;
 
-// ponytail: 20ms of real time, not an injected clock. A harness drives the
-// platform itself, and a cross-tab notification arrives on a macrotask with no
-// clock to inject. Raise it if a backend is ever slower than that.
+// Platform notifications use real tasks, so a fake clock cannot settle them.
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 /**
