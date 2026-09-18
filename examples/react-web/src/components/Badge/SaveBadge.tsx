@@ -25,12 +25,12 @@ export const SaveBadge: React.FunctionComponent<SaveBadgeProps> = ({
     .with({ state: "IDLE" }, () => null)
     .with({ state: "PENDING" }, () => (
       <Badge tone="warning" icon={CircleNotch}>
-        Writing
+        Saving
       </Badge>
     ))
     .with({ state: "DURABLE" }, () => (
       <Badge tone="positive" icon={CheckCircle}>
-        Durable
+        Saved
       </Badge>
     ))
     .with({ state: "REFUSED" }, () => (

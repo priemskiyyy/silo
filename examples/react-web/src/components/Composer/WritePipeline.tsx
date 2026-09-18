@@ -12,10 +12,10 @@ type WritePipelineProps = {
 
 type Step = "EDITING" | "WRITING" | "DURABLE";
 
-const STEPS: ReadonlyArray<{ step: Step; label: string; icon: Icon }> = [
+const STEPS: { step: Step; label: string; icon: Icon }[] = [
   { step: "EDITING", label: "Editing", icon: PencilLine },
-  { step: "WRITING", label: "Writing", icon: CircleNotch },
-  { step: "DURABLE", label: "Durable", icon: Check },
+  { step: "WRITING", label: "Saving", icon: CircleNotch },
+  { step: "DURABLE", label: "Saved", icon: Check },
 ];
 
 /** The write path as three steps: `set` returns during the first, the adapter works through the second, and `flush()` resolves on the third. */

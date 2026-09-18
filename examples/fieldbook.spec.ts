@@ -46,7 +46,7 @@ const pickRemote = (page: Page) => pick(page, "Remote");
 const currentStep = (page: Page) =>
   panel(page, "Composer").locator('[aria-current="step"]');
 
-// The optimistic snapshot shows the entry at once; "Durable" is `flush()`
+// The optimistic snapshot shows the entry at once; "Saved" is `flush()`
 // resolving, and only then can a reload not lose it.
 const addEntry = async (page: Page, title: string) => {
   const entries = panel(page, "Entries");
@@ -55,7 +55,7 @@ const addEntry = async (page: Page, title: string) => {
     .fill(title);
   await page.getByRole("button", { name: "Add entry", exact: true }).click();
   await expect(entries.getByText(title, { exact: true })).toBeVisible();
-  await expect(entries.getByText("Durable", { exact: true })).toBeVisible();
+  await expect(entries.getByText("Saved", { exact: true })).toBeVisible();
 };
 
 for (const width of WIDTHS) {
@@ -99,7 +99,7 @@ for (const width of WIDTHS) {
     await page
       .getByRole("button", { name: "Save as entry", exact: true })
       .click();
-    await expect(currentStep(page)).toHaveText("Durable");
+    await expect(currentStep(page)).toHaveText("Saved");
     await expect(
       panel(page, "Entries").getByText("Tide tables", { exact: true }),
     ).toBeVisible();
@@ -254,7 +254,7 @@ for (const width of WIDTHS) {
       .click();
     await expect(currentStep(page)).toHaveText("Refused");
     await composer.getByRole("button", { name: "Retry", exact: true }).click();
-    await expect(currentStep(page)).toHaveText("Durable");
+    await expect(currentStep(page)).toHaveText("Saved");
     await expect(
       panel(page, "Entries").getByText("Storm coming", { exact: true }),
     ).toBeVisible();
@@ -281,7 +281,7 @@ for (const width of WIDTHS) {
         .getByRole("button", { name: "Count one more", exact: true })
         .click();
       await expect(
-        playground.getByText("Durable", { exact: true }).first(),
+        playground.getByText("Saved", { exact: true }).first(),
       ).toBeVisible();
     }
 
@@ -318,7 +318,7 @@ for (const width of WIDTHS) {
     const note = await pickRemote(page);
     await note.fill("shared through the server");
     await expect(
-      panel(page, "Playground").getByText("Durable", { exact: true }).first(),
+      panel(page, "Playground").getByText("Saved", { exact: true }).first(),
     ).toBeVisible();
     // The access log, newest first: the write is a PUT the server accepted.
     await expect(
@@ -350,7 +350,7 @@ for (const width of WIDTHS) {
     const note = await pick(page, "Synced URL");
     await note.fill("same link everywhere");
     await expect(
-      panel(page, "Playground").getByText("Durable", { exact: true }).first(),
+      panel(page, "Playground").getByText("Saved", { exact: true }).first(),
     ).toBeVisible();
 
     // The other tab wrote the announcement into its own fragment, then applied it.
@@ -392,7 +392,7 @@ for (const width of WIDTHS) {
       .getByRole("button", { name: "Retry", exact: true })
       .click();
     await expect(
-      playground.getByText("Durable", { exact: true }).first(),
+      playground.getByText("Saved", { exact: true }).first(),
     ).toBeVisible();
     await page.reload();
     await expect(
