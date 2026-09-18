@@ -1,6 +1,5 @@
 import type { SiloSnapshot } from "src/types/SiloSnapshot";
 import type { SiloValue } from "src/types/SiloValue";
-import type { ValueDefinition } from "src/types/ValueDefinition";
 import { assertUnreachable } from "src/utils/common/assertUnreachable";
 import { deferred } from "src/utils/common/deferred";
 import { ValueStore } from "src/utils/common/ValueStore";
@@ -22,7 +21,6 @@ type Lifecycle =
   | { state: "FAILED"; error: unknown }
   | { state: "DISPOSED"; reason: string };
 type Resources = {
-  definition: ValueDefinition<unknown>;
   backend: Backend;
   codec: ValueCodec;
   diagnostics: Pick<Diagnostics, "changed" | "record" | "recording">;
@@ -44,32 +42,27 @@ export class ValueRecord {
 
   handle: SiloValue<unknown>;
 
-  constructor(options: {
+  constructor({
+    key,
+    identity,
+    admit,
+    ...resources
+  }: Resources & {
     key: string;
-    /** Where the record lives, the way the inspector reports it. */
     identity: { storage: string; path: string; segments: string[] };
-    definition: ValueDefinition<unknown>;
-    backend: Backend;
-    codec: ValueCodec;
     admit: Migrations["admit"];
-    diagnostics: Pick<Diagnostics, "changed" | "record" | "recording">;
   }) {
-    this.#key = options.key;
-    this.#identity = options.identity;
-    this.#resources = {
-      definition: options.definition,
-      backend: options.backend,
-      codec: options.codec,
-      diagnostics: options.diagnostics,
-    };
+    this.#key = key;
+    this.#identity = identity;
+    this.#resources = resources;
 
     this.#state = new ValueStore<Snapshot>({
-      value: options.definition.fallback,
+      value: resources.codec.fallback,
       status: HYDRATING_VALUE_STATUS,
     });
     this.#writes = new WriteQueue({
-      key: options.key,
-      backend: options.backend,
+      key,
+      backend: resources.backend,
       trace: {
         changed: () => this.#changed(),
         durable: (generation) =>
@@ -87,7 +80,7 @@ export class ValueRecord {
       flush: this.flush,
     };
 
-    this.#cancelAdmission = options.admit({
+    this.#cancelAdmission = admit({
       open: () => {
         this.#cancelAdmission = undefined;
         if (this.#lifecycle.state === "DISPOSED") {
@@ -147,7 +140,7 @@ export class ValueRecord {
       return;
     }
 
-    this.#mutate({ kind: "remove" }, resources.definition.fallback);
+    this.#mutate({ kind: "remove" }, resources.codec.fallback);
   };
 
   flush = () => this.#writes.flush();
@@ -403,7 +396,7 @@ export class ValueRecord {
     const committed = ++this.#revision;
     if (inbound.kind === "invalid") {
       this.#publish(committed, {
-        value: resources.definition.fallback,
+        value: resources.codec.fallback,
         status: {
           state: "error",
           error: { phase: "hydrate", cause: inbound.error },
@@ -414,7 +407,7 @@ export class ValueRecord {
 
     if (inbound.kind === "absent") {
       this.#publish(committed, {
-        value: resources.definition.fallback,
+        value: resources.codec.fallback,
         status: READY_VALUE_STATUS,
       });
       return;

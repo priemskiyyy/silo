@@ -20,6 +20,10 @@ export class ValueCodec {
     this.#options = options;
   }
 
+  get fallback() {
+    return this.#options.definition.fallback;
+  }
+
   encode(value: unknown) {
     const { definition, now } = this.#options;
     const raw = definition.encode(value);

@@ -5,7 +5,6 @@ import type { SiloSnapshot } from "src/types/SiloSnapshot";
 import type { SiloValue } from "src/types/SiloValue";
 import type { StorageChange } from "src/types/StorageChange";
 import type { Storages } from "src/types/Storages";
-import type { ValueDefinition } from "src/types/ValueDefinition";
 import { DEFAULT_STORAGE, PATH_SEPARATOR } from "src/utils/constants/keyspace";
 import type { Backend } from "src/utils/internal/adapter/Backend";
 import type { AcquiredStorages } from "src/utils/internal/adapter/AcquiredStorages";
@@ -31,7 +30,6 @@ export class SiloValues<TStorages extends Storages> {
     string,
     {
       key: string;
-      definition: ValueDefinition<unknown>;
       codec: ValueCodec;
       backing: Backing;
     }
@@ -77,7 +75,6 @@ export class SiloValues<TStorages extends Storages> {
           name === DEFAULT_STORAGE ? key : `${name}${PATH_SEPARATOR}${key}`;
         this.#entries.set(path, {
           key,
-          definition,
           codec: new ValueCodec({ definition, now }),
           backing,
         });
@@ -220,8 +217,9 @@ export class SiloValues<TStorages extends Storages> {
       throw new Error(`Silo has no value named "${path}" in its storages.`);
     }
 
-    const key = entry.backing.keyspace.physical(segments, entry.key);
-    const existing = entry.backing.records.get(key);
+    const { backing, codec } = entry;
+    const key = backing.keyspace.physical(segments, entry.key);
+    const existing = backing.records.get(key);
 
     if (existing !== undefined) {
       return existing;
@@ -229,19 +227,18 @@ export class SiloValues<TStorages extends Storages> {
 
     const record = new ValueRecord({
       key,
-      identity: { storage: entry.backing.name, path, segments: [...segments] },
-      definition: entry.definition,
-      codec: entry.codec,
-      backend: entry.backing.backend,
+      identity: { storage: backing.name, path, segments: [...segments] },
+      codec,
+      backend: backing.backend,
       admit: this.#admit,
       diagnostics: this.#diagnostics,
     });
-    entry.backing.records.set(key, record);
+    backing.records.set(key, record);
     if (this.#diagnostics.recording) {
       this.#diagnostics.record({
         source: "value",
         type: "record created",
-        storage: entry.backing.name,
+        storage: backing.name,
         key,
         context: { path, segments },
       });
