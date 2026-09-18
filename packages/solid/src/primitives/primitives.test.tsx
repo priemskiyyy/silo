@@ -45,6 +45,45 @@ const createHarness = () => {
   disposals.push(silo.dispose);
   return { mock, silo };
 };
+
+test("explicit handles need no provider and accessors retarget subscriptions and setters", () => {
+  const { silo } = createHarness();
+  const first = silo.scope("workspaces:7").value("count");
+  const second = silo.scope("workspaces:7:users:2").value("count");
+  second.set(5);
+  const [handle, setHandle] = createSignal(first);
+  const changed = vi.fn();
+  const { unmount } = render(() => {
+    const [count, setCount] = useValue(handle, changed);
+    const [root, setRoot] = useValue(silo.value("count"));
+    const status = useValueStatus(handle);
+    return (
+      <button
+        onClick={() => {
+          setCount((previous) => previous + 1);
+          setRoot((previous) => previous + 1);
+        }}
+      >
+        {root()}/{count()}/{status().state}
+      </button>
+    );
+  });
+  expect(screen.getByRole("button").textContent).toBe("0/0/ready");
+  fireEvent.click(screen.getByRole("button"));
+  expect(first.get()).toBe(1);
+  setHandle(second);
+  changed.mockClear();
+  first.set(9);
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.getByRole("button").textContent).toBe("1/5/ready");
+  fireEvent.click(screen.getByRole("button"));
+  expect(second.get()).toBe(6);
+  expect(screen.getByRole("button").textContent).toBe("2/6/ready");
+  unmount();
+  changed.mockClear();
+  second.set(7);
+  expect(changed).not.toHaveBeenCalled();
+});
 const View = (props: {
   name?: string;
   onChange?: (value: unknown) => void;

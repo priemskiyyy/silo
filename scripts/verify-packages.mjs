@@ -580,6 +580,12 @@ export const checkVue = () => {
 
 declare module "@priemskiyyy/silo-solid" { interface Register { silo: typeof silo; } }
 export const checkSolid = () => {
+  const [timestamp, setTimestamp] = Solid.useValue(() => independentHandle);
+  expectType<Equal<ReturnType<typeof timestamp>, Date>>(true);
+  setTimestamp((previous) => new Date(previous.getTime() + 1));
+  Solid.useValueStatus(independentHandle);
+  // @ts-expect-error explicit handles retain their own value type
+  setTimestamp("invalid");
   expectType<Equal<Solid.RegisteredKey, "theme" | "user" | "count" | "callback">>(true);
   const [theme, setTheme] = Solid.useValue("theme");
   const [user, setUser] = Solid.useValue("user");

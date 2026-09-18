@@ -4,6 +4,31 @@ import { Silo, value } from "@priemskiyyy/silo";
 import { createMockAdapter } from "@priemskiyyy/silo/mock";
 import { SiloProvider, useValue, useValueStatus } from "src/index";
 
+test("SSR accepts a scoped handle without a provider or subscriptions", () => {
+  const mock = createMockAdapter();
+  const silo = new Silo({
+    storages: {
+      default: {
+        adapters: [mock.adapter],
+        schema: { count: value({ fallback: 3 }) },
+      },
+    },
+  });
+  const handle = silo.scope("workspaces:7").value("count");
+  const subscribe = vi.spyOn(handle, "subscribe");
+  const View = () => {
+    const [count] = useValue(() => handle);
+    const status = useValueStatus(handle);
+    return <span>{`${count()}/${status().state}`}</span>;
+  };
+  expect(renderToString(() => <View />)).toContain("3/ready");
+  expect(subscribe).not.toHaveBeenCalled();
+  expect(mock.calls.map((call) => [call.operation, call.key])).toEqual([
+    ["get", "silo:workspaces:7:count"],
+  ]);
+  silo.dispose();
+});
+
 test("SSR renders stable fallbacks without subscriptions, writes, or disposal", () => {
   expect(typeof window).toBe("undefined");
   const mock = createMockAdapter();
