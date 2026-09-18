@@ -4,11 +4,9 @@ description: "Install the Silo browser devtools to inspect storages, cached reco
 
 # Devtools
 
-`@priemskiyyy/silo-devtools` shows every storage of a store with the adapter
-that won its list, the records the application reached, the migration version,
-and a timeline of what the runtime did to each key. The inspector is
-framework-independent and renders inside a shadow root, so it looks and behaves
-the same in React, Vue, Solid, Svelte or plain TypeScript.
+`@priemskiyyy/silo-devtools` displays selected adapters, cached values, errors,
+migration versions, and a timeline of storage operations. It works with any
+framework or plain TypeScript and renders inside a shadow root.
 
 ```sh
 pnpm add -D @priemskiyyy/silo-devtools
@@ -75,7 +73,7 @@ chain has not read the stored version yet, then `v2 of 2`.
 
 The sidebar lists every storage by name with the adapter that won its candidate
 list and that adapter's mode. A storage that fell through to `memory()` is
-marked amber: the application is running on the floor of its list, which is
+marked amber: the application is using memory, which is
 usually a probe that failed, such as blocked site data or a missing platform.
 Hovering a storage name shows its namespace.
 
@@ -203,21 +201,22 @@ Every event carries the same six fields:
 | `timestamp` | `Date.now()` when the event was emitted.                                                                            |
 | `context`   | Event details, including outcomes, versions and error causes. Causes may contain arbitrary application or SDK data. |
 
-| Type                | Source      | Context                                                                                         |
-| ------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
-| `record created`    | `value`     | `{ path, segments }` when a key is first reached.                                               |
-| `hydrate landed`    | `value`     | `{ outcome }`, one of `absent`, `value`, `expired`, `invalid`, plus `cause` when invalid.       |
-| `write accepted`    | `value`     | `{ kind, revision }`, where `kind` is `set` or `remove`.                                        |
-| `write durable`     | `value`     | `{ generation }` when the adapter confirmed the write.                                          |
-| `write refused`     | `value`     | `{ generation, cause }` when the adapter threw or rejected.                                     |
-| `outside applied`   | `value`     | `{ outcome }` when a change from another tab or process replaced the snapshot.                  |
-| `outside dropped`   | `value`     | `{ reason }` while a local write is in flight, or `{ cause }` when the change would not decode. |
-| `migration version` | `migration` | `{ version }` once the stored version was read.                                                 |
-| `migration step`    | `migration` | `{ version }` before a step runs.                                                               |
-| `migration done`    | `migration` | `{ version }` when the chain finished.                                                          |
-| `migration failed`  | `migration` | `{ cause }` when a step threw or rejected.                                                      |
-| `scope released`    | `store`     | `{ segments }` after `release()` freed a scope's records.                                       |
-| `store disposed`    | `store`     | `null`, the last event a store emits.                                                           |
+| Type                 | Source      | Context                                                                                         |
+| -------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| `record created`     | `value`     | `{ path, segments }` when a key is first reached.                                               |
+| `hydrate landed`     | `value`     | `{ outcome }`, one of `absent`, `value`, `expired`, `invalid`, plus `cause` when invalid.       |
+| `write accepted`     | `value`     | `{ kind, revision }`, where `kind` is `set` or `remove`.                                        |
+| `write durable`      | `value`     | `{ generation }` when the adapter confirmed the write.                                          |
+| `write refused`      | `value`     | `{ generation, cause }` when the adapter threw or rejected.                                     |
+| `outside applied`    | `value`     | `{ outcome }` when a change from another tab or process replaced the snapshot.                  |
+| `observation failed` | `store`     | `{ cause }` for a failed adapter notification; includes storage and an optional physical key.   |
+| `outside dropped`    | `value`     | `{ reason }` while a local write is in flight, or `{ cause }` when the change would not decode. |
+| `migration version`  | `migration` | `{ version }` once the stored version was read.                                                 |
+| `migration step`     | `migration` | `{ version }` before a step runs.                                                               |
+| `migration done`     | `migration` | `{ version }` when the chain finished.                                                          |
+| `migration failed`   | `migration` | `{ cause }` when a step threw or rejected.                                                      |
+| `scope released`     | `store`     | `{ segments }` after `release()` freed a scope's records.                                       |
+| `store disposed`     | `store`     | `null`, the last event a store emits.                                                           |
 
 The event types are plain strings rather than a union, so a custom integration
 that switches on them should treat an unknown phrase as informational rather

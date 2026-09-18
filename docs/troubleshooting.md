@@ -1,13 +1,12 @@
 ---
-description: "Diagnose a Silo value that reads its fallback, a namespace in the URL, a flashing first frame, a write that never lands, stale tabs and failed migrations."
+description: "Diagnose a Silo value that reads its fallback, a namespace in the URL, a flashing first frame, a write that does not persist, stale tabs and failed migrations."
 ---
 
 # Troubleshooting
 
-Start with the value's status, then the store's, then the storage that won.
-`status.get()` on any value, `silo.status.get()` for the store, and
-`silo.diagnostics.get().storages` for the winners answer most of what follows
-without creating demand. [Devtools](devtools.md) shows all three.
+Check `handle.status.get()` for read and write errors, `silo.status.get()` for
+migration errors, and `silo.diagnostics.get().storages` for selected adapters.
+[Devtools](devtools.md) displays the same information without loading extra values.
 
 ## The value reads its fallback after a reload
 
@@ -27,7 +26,7 @@ Work down the list; each is a different physical key or a different backend.
 - **It expired.** A key that declares `expires` reads as absent at or past its
   stored `expires.at` and schedules its own deletion.
 - **There is no codec and no schema, so nothing validated.** `value<User>()`
-  hands back whatever is on disk as a `User`. See
+  returns whatever is on disk as a `User`. See
   [Schema and codecs](schema-and-codecs.md).
 
 ## The URL shows `silo%3Anote` instead of `note`
@@ -40,9 +39,9 @@ query string should never carry a prefix regardless of who wins, set
 
 ## The first frame flashes the fallback
 
-On an **asynchronous adapter this is by design**. Reaching a value creates its
-record and starts the read; until the read lands, the snapshot is the declared
-fallback. Gate on it rather than trying to make it disappear:
+An asynchronous adapter initially exposes the fallback. Reaching a value creates its
+record and starts the read; until the read completes, the snapshot is the declared
+fallback. Render a loading placeholder when needed:
 
 ```tsx
 import { useValue, useValueStatus } from "@priemskiyyy/silo-react";
@@ -65,7 +64,7 @@ completes or a write supersedes it.
 On a **synchronous adapter there should be no flash at all**: hydration
 happens inside `silo.value(key)`, so the first `get()` already returns
 persisted data. Two things break that. A migration step that is still pending
-keeps the gate closed until it lands, on every storage. And an asynchronous
+delays reads until it completes, on every storage. And an asynchronous
 candidate anywhere in the same storage's list makes that storage asynchronous,
 even when the synchronous candidate won. When the default storage is
 synchronous and no step is pending, the store reads the version in the same
@@ -115,7 +114,7 @@ Check in this order.
 3. **The store was disposed.** After `dispose()` no new mutation is accepted.
 4. **A write was queued behind one in flight when the store was disposed.**
    Disposal cannot send a queued write without reordering the two.
-   `await silo.flush()` before disposing when the last write has to land.
+   `await silo.flush()` before disposing when the last write must finish.
 5. **The value was mutated rather than set.** Stored values are immutable;
    mutating what you passed to `set` changes the snapshot with no notification
    and nothing to persist.
@@ -129,7 +128,7 @@ Check in this order.
   sees an external change. [External observation](external-observation.md)
   lists what each adapter reports.
 - **The backend is not shared.** A `sessionStorage` area is private to its
-  tab, and a `memory()` floor is private to its page.
+  tab, and a `memory()` fallback is private to its page.
 - **The URL is per tab.** `searchParams()` reports only this tab's navigation.
   `searchParams({ sharing: "cross-tab" })` announces writes to the other tabs on the
   same path and writes theirs into this URL.
@@ -155,7 +154,7 @@ Check in this order.
 
 `silo.status.get()` is `{ state: "error", error: { phase: "migrate", cause } }`,
 `ready()` rejected, and every write fails with the same cause. The stored version
-is the last step that landed, so the next start resumes at the failed step.
+is the last saved checkpoint, so the next start resumes at the failed step.
 Fix the step or the data it tripped over. Write steps that tolerate rerunning:
 read what is there, decide, and write only when the shape is the old one. Two
 tabs opening cold at once can run the same step, since concurrent
@@ -164,7 +163,7 @@ initialization is not locked. See [Migrations](migrations.md).
 ## hydrated() rejects
 
 The promise rejects, with a message naming the key, when the record went away
-before its first read landed: the store was disposed, or the scope holding
+before its first read completed: the store was disposed, or the scope holding
 the record was released. Await `hydrated()` on a handle you still own, and do
 not release a scope while a consumer is still waiting on it. See
 [Scopes](scopes.md).
@@ -176,13 +175,14 @@ warning naming the database. Close the other tab, or stop pinning `version`.
 
 ## Nothing happens on the server
 
-Expected, on every browser-only adapter. Nothing runs at import, nothing runs
-in the factory, `available()` answers `false`, and the next candidate wins.
-A list that ends in `memory()` constructs everywhere. A list with a single
-browser adapter and no floor gets that adapter regardless: `get` reads
-`undefined`, so every value takes its fallback, and `set` throws an error
-naming the adapter and the key, which the core turns into a write error
-status. See [Server rendering](server-rendering.md).
+The default probes of browser adapters report unavailable when their APIs are
+absent, so a following memory adapter can be selected. Memory data belongs only
+to that store instance.
+
+Used alone, localStorage, sessionStorage, cookie, and searchParams return absent
+values without their browser APIs and report failed writes. IndexedDB reads also
+fail without its API. See [Server rendering](server-rendering.md) for a complete
+setup and React hydration handling.
 
 ## TypeScript rejects the key
 

@@ -4,11 +4,9 @@ description: "Several storages in one Silo store: candidate adapters chosen by a
 
 # Storages and namespaces
 
-A store runs over several backends at once. Each one is a **storage**: a name,
-a schema of the keys that live there, and an ordered list of candidate
-adapters. A token belongs in the keychain, a theme in `localStorage`, a filter
-in the URL, and an entry list in IndexedDB, and one store addresses all four
-with one set of types.
+A named storage groups a schema with an adapter list. Use several storages when
+values need different backends: localStorage for preferences, IndexedDB for
+documents, or the URL for filters.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";
@@ -55,11 +53,13 @@ to a key.
 
 ## Candidates and availability
 
-Every adapter exposes `available()`. The store probes candidates at construction
-until one succeeds, skipping any later probes.
-It walks the list, keeps the first candidate that answers `true`, and disposes
-the rest. The last candidate is never asked: it is the floor, taken as given,
-so a list with nothing available still constructs.
+Silo tries candidates in order. A candidate must pass `available()`, expose its
+native handle, and attach its observer if it has one. A false probe or a thrown
+error skips that candidate. The final candidate follows the same rules.
+
+If none initializes, construction throws an `AggregateError` naming the storage;
+its `errors` contain each candidate failure and the original causes. Unselected
+adapters are disposed. Cleanup failures still abort construction.
 
 ```ts
 const storages = {
@@ -71,10 +71,9 @@ const storages = {
 };
 ```
 
-End every list with `memory()`. The application then always has a working
-store, and [devtools](devtools.md) shows the chosen adapter per storage in
-amber when it is the memory floor, so a fallback in production is visible
-rather than silent.
+Add `memory()` when losing data on reload is acceptable. If persistence is
+required, handle storage errors instead of treating memory as a successful save.
+[Devtools](devtools.md) shows which adapter was selected.
 
 Every shipped adapter takes an `available` option that replaces its probe, so a
 list can be gated by application state:
@@ -83,9 +82,11 @@ list can be gated by application state:
 adapters: [localStorage({ available: () => consent.granted }), memory()];
 ```
 
-The choice is made once and kept for the store's life. An adapter that becomes
-unavailable later reports its failures through [statuses](errors-and-recovery.md),
-not through a switch.
+The choice is made once. The probe is synchronous and does not await a connection
+or database open. A selected IndexedDB adapter can subsequently fail to open;
+that failure appears in [status](errors-and-recovery.md) without trying memory.
+For explicit initialization before selection, see the
+[IndexedDB startup recipe](recipes.md#check-indexeddb-before-startup).
 
 ## Mode follows the list
 
@@ -187,7 +188,7 @@ in eight storages, so the same field can be pointed at each medium in turn:
 
 | Storage       | Adapters                                                         | Why it is there                                                          |
 | ------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `memory`      | `memory()`                                                       | The floor every other list ends in. Gone on reload.                      |
+| `memory`      | `memory()`                                                       | Session-only fallback; data is lost on reload.                           |
 | `default`     | `localStorage()`, `memory()`                                     | Synchronous, so the theme is right on the first frame.                   |
 | `session`     | `sessionStorage()`, `memory()`                                   | This tab only.                                                           |
 | `journal`     | `indexedDb()`, `memory()`                                        | Structured clone: a `Date`, a `Set` and a `Map` come back as themselves. |

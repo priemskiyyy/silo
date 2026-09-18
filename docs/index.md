@@ -54,7 +54,8 @@ await theme.flush();
 stop();
 ```
 
-The store uses `localStorage` when available and falls back to memory.
+The store selects `localStorage` when its availability probe passes, or memory
+otherwise. Later read or write failures do not change that selection.
 `theme.get()` always returns a synchronous snapshot. With an asynchronous
 backend such as IndexedDB, it initially returns the fallback and notifies
 subscribers when hydration completes.
@@ -69,8 +70,9 @@ in IndexedDB, filters in the URL, or credentials in a device keychain. Address
 keys in the default storage as `theme` and keys elsewhere as `session.draft`.
 
 [Compare the 23 adapters](adapters.md) for supported values, observation,
-platform requirements and configuration. Adapters retain their backend's
-serialization, quota and durability limits.
+platform requirements and configuration, and check the
+[backend verification matrix](verification.md) for test coverage. Adapters retain
+their backend's serialization, quota and durability limits.
 
 ## Connect your framework
 

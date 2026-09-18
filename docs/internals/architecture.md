@@ -46,13 +46,15 @@ It holds no record state and reads the owning store's clock on each operation.
 
 ## Startup and ownership
 
-1. Construct `AcquiredStorages`. It registers every unique candidate with its own
-   `Lifetime` before probing or reading native handles, then releases unused
-   candidates. Register its disposal with `Silo`.
+1. Construct `AcquiredStorages`. It owns all candidates before probing them.
+   Each candidate must pass availability, native access, and synchronous observer
+   setup. Failure tries the next candidate, including the final one. If none works,
+   an aggregate error preserves the causes. Observers start muted; failed setup
+   callbacks never become active. Release unused candidates and register disposal.
 2. Resolve each storage's keyspace from its namespace override, selected adapter,
    and the store namespace, then validate storage names and schema keys.
 3. Construct migrations and the value registry, registering their cleanup.
-4. Attach external observers, then start migrations.
+4. Connect acquired observers to the value registry, then start migrations.
 
 Setup failures roll back resources in reverse order. Individually released
 candidates leave the lifetime's pending collection and are not disposed again,

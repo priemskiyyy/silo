@@ -4,10 +4,9 @@ description: "Install the Silo core, a framework binding, the devtools and any o
 
 # Installation
 
-Install the core, one adapter per storage, and the framework binding if you use
-one. Every package is ESM, ships TypeScript declarations, and declares no
-runtime dependency of its own. An adapter that wraps an SDK is handed the SDK's
-instance, so the SDK is installed by the application and never by the adapter.
+Install the core, the adapters you need, and an optional framework binding.
+Packages use ESM and include TypeScript declarations. SDK adapters accept a
+client created by your application; install that SDK separately.
 
 ## Frameworks
 
@@ -28,8 +27,9 @@ packages are compiled by your application's Svelte toolchain.
 ## Adapters
 
 Add `@priemskiyyy/silo` alongside the packages below if it is not installed
-already. Every list of candidates should end with `@priemskiyyy/silo-memory`,
-so a store always lands on a backend that works.
+already. Add `@priemskiyyy/silo-memory` as a fallback if session-only state is
+acceptable when a storage availability check fails. It does not provide runtime
+failover after a backend has been selected.
 
 ### Browser
 
@@ -85,7 +85,7 @@ The iCloud adapter is experimental and iOS only: gate it with
 The bridge wraps any other adapter and delivers the changes made on other
 devices over a [simulcast](https://priemskiyyy.github.io/simulcast/) channel.
 
-For example, React with `localStorage` and the memory floor:
+For example, React with `localStorage` and the memory fallback:
 
 ::: code-group
 
@@ -151,7 +151,7 @@ them. See [schema and codecs](schema-and-codecs.md).
   targets and in Node 17 and newer.
 - The browser adapters resolve their platform lazily, so importing them on a
   server is safe: `available()` answers `false`, and a store constructed there
-  lands on the next candidate. See [server rendering](server-rendering.md).
+  can select another candidate. See [server rendering](server-rendering.md).
 - The IndexedDB adapter needs a browser. Under Vitest, `fake-indexeddb/auto` in
   a setup file is enough.
 - The SQLite adapter needs a synchronous statement API. `node:sqlite` ships

@@ -4,12 +4,9 @@ description: "Test a Silo application without a browser or timers: the mock stor
 
 # Testing an application
 
-Application code that uses Silo needs no browser, no backend and no real
-timers. `@priemskiyyy/silo/mock` exports `createMockAdapter`, a deliberately
-badly behaved adapter that records every call, lets a test hold an operation
-open and settle or fail it later, and emits external changes on demand. For a
-plain fixture with no controls, `memory()` from `@priemskiyyy/silo-memory`
-works in every runtime.
+Use `createMockAdapter` to test reads, writes, failures, and external changes
+without a real backend. It records calls and lets you control when asynchronous
+operations complete. For tests that only need stored values, use `memory()`.
 
 This page is about testing an application. For testing an adapter you wrote,
 see [Testing an adapter](testing-adapters.md).
@@ -106,7 +103,7 @@ const Theme = () => {
   return <p>{status.state === "hydrating" ? "loading" : String(theme)}</p>;
 };
 
-test("the value renders loading until hydration lands", async () => {
+test("the value renders loading until hydration completes", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
@@ -264,7 +261,8 @@ test("a blocked first choice falls through to memory", () => {
 });
 ```
 
-The last candidate is never probed; it is the floor. See
+The final candidate is checked too. If all candidates fail, construction throws
+and releases them. See
 [Storages and namespaces](storages.md).
 
 ## Test a migration
@@ -306,7 +304,7 @@ test("version 2 renames the theme key", () => {
 With an asynchronous adapter anywhere in the store, `await silo.ready()`
 before reading, and assert `silo.status.get()` is `{ state: "error", ... }`
 for a step that throws. A failed chain leaves the stored version at the last
-step that landed, so the same test can construct a second store over the same
+step whose checkpoint was saved, so the same test can construct a second store over the same
 `mock.store` and prove the retry resumes there. See
 [Migrations](migrations.md).
 
@@ -395,7 +393,7 @@ test("disposing the store disposes its adapter once", () => {
 
 `dispose()` is idempotent on both the store and the adapter. A write already
 sent to the adapter still completes; one queued behind it does not, so
-`await silo.flush()` before disposing when the last write has to land. A
+`await silo.flush()` before disposing when the last write must finish. A
 candidate that lost its list is disposed at construction, so a mock listed
 behind a winner reports one disposal before any test code runs.
 

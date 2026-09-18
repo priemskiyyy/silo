@@ -4,24 +4,20 @@ description: "Compare Silo's 23 storage adapters for the browser, React Native, 
 
 # Adapters
 
-An adapter maps one storage backend onto the contract the runtime consumes. Each
-one is a cold description: importing the module touches nothing, calling the
-factory touches nothing, and the backend is resolved on first use. The core owns
-keys, codecs, snapshots, demand, write ordering, coalescing, flush barriers,
-expiry and migrations. The adapter reads and writes raw values at opaque keys
-and reports changes it did not make.
+An adapter connects Silo to one storage backend. Install the adapters your
+application needs; the tables below list their value formats, observation
+support, and configuration.
 
-**The adapter owns serialization, the codec owns validation.** The core hands an
-adapter a decoded JavaScript value and expects one back, which is what keeps
-`decode` a one-liner and keeps a `Date` alive through IndexedDB. The cost is that
-the set of values that survive is a property of the backend, not of Silo. See
-[Schema and codecs](schema-and-codecs.md).
+Factories defer storage operations until use. Availability checks select a
+candidate during Silo construction; they do not prove that a later read or write
+will succeed.
 
-Every adapter below is a package of its own, so an application installs only the
-backends it runs on. Every factory takes `available`, and the text-based ones
-take `format`; both are explained once, under
-[Candidate lists](#candidate-lists-and-available) and
-[Text formats](#text-formats), and only named in the tables.
+Text adapters serialize values, usually as JSON. A codec validates or converts
+the value passed to that adapter. Choose a format that preserves your value's
+types; see [Text formats](#text-formats).
+
+[Backend test coverage](verification.md) distinguishes real browser and local
+backend tests from tests using SDK fakes.
 
 ## Compare the adapters
 
@@ -62,41 +58,50 @@ The namespace column says whether the physical key carries the store's
 namespace by default. Only the query string hides it, because a link reads
 better as `?filter=open`; see [Namespaces in the medium](#namespaces-in-the-medium).
 
-## Which one to reach for
+## Choose an adapter
 
-| Requirement                                                       | Adapter                                          |
-| ----------------------------------------------------------------- | ------------------------------------------------ |
-| A preference that survives a reload                               | `localStorage()`                                 |
-| State that belongs to one tab and one visit                       | `sessionStorage()`                               |
-| More than a few hundred kilobytes, or a `Date`, a `Map`, a `Blob` | `indexedDb()`                                    |
-| A value the server must see on every request                      | `cookie()`                                       |
-| Filters and sort orders that belong in a shareable link           | `searchParams()`                                 |
-| A browser extension's settings, shared with its service worker    | `chromeStorage()`                                |
-| React Native, read in the first frame                             | `mmkv()`                                         |
-| React Native, no native module                                    | `asyncStorage()`                                 |
-| A token on the device                                             | `secureStore()` on Expo, `keychain()` on bare RN |
-| Capacitor, one API for iOS, Android and the web                   | `capacitorPreferences()`                         |
-| Following the Apple ID across devices                             | `icloud()`, experimental                         |
-| Electron's main process, or a Node tool                           | `electronStore()`, `jsonFile()`, `sqlite()`      |
-| A Tauri window                                                    | `tauriStore()`                                   |
-| A store on the server, shared by every process                    | `redis()`, `cloudflareKv()`, `unstorage()`       |
-| Strong consistency at the edge                                    | `cloudflareDurableObjectStorage()`               |
-| Values that follow the user from one device to the next           | `http()`, live across devices with `simulcast()` |
-| Tests, a server render, a first prototype, the floor of any list  | `memory()`                                       |
+| Requirement                                                                   | Adapter                                          |
+| ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| A preference that survives a reload                                           | `localStorage()`                                 |
+| State that belongs to one tab and one visit                                   | `sessionStorage()`                               |
+| More than a few hundred kilobytes, or a `Date`, a `Map`, a `Blob`             | `indexedDb()`                                    |
+| A value the server must see on every request                                  | `cookie()`                                       |
+| Filters and sort orders that belong in a shareable link                       | `searchParams()`                                 |
+| A browser extension's settings, shared with its service worker                | `chromeStorage()`                                |
+| React Native, read in the first frame                                         | `mmkv()`                                         |
+| React Native, no native module                                                | `asyncStorage()`                                 |
+| A token on the device                                                         | `secureStore()` on Expo, `keychain()` on bare RN |
+| Capacitor, one API for iOS, Android and the web                               | `capacitorPreferences()`                         |
+| Following the Apple ID across devices                                         | `icloud()`, experimental                         |
+| Electron's main process, or a Node tool                                       | `electronStore()`, `jsonFile()`, `sqlite()`      |
+| A Tauri window                                                                | `tauriStore()`                                   |
+| A store on the server, shared by every process                                | `redis()`, `cloudflareKv()`, `unstorage()`       |
+| Strong consistency at the edge                                                | `cloudflareDurableObjectStorage()`               |
+| Values that follow the user from one device to the next                       | `http()`, live across devices with `simulcast()` |
+| Tests, a server render, a first prototype, a fallback for unavailable storage | `memory()`                                       |
 
-Mode is not a preference. A synchronous adapter with no pending migration
+A synchronous adapter with no pending migration
 hydrates inside `silo.value(key)`, so the first `get()` already returns
-persisted data; an asynchronous one returns the fallback until hydration lands.
+persisted data; an asynchronous one returns the fallback until hydration completes.
 See [Synchronous and asynchronous](sync-vs-async.md).
 
 ## Candidate lists and `available`
 
-A storage names an ordered list of adapters, not one. The store probes each
-candidate's `available()` once, at construction, keeps the first that answers
-`true` for its whole life, takes the last one regardless, and disposes the
-rest. Ending every list with `memory()` is what makes a store construct
-anywhere: on a server, in a private window with site data blocked, or on a
-platform whose native module did not load.
+Silo tries candidates in order, including the final candidate. A false availability
+probe, a throwing probe or native getter, or a failed synchronous observer setup
+causes it to try the next candidate. If none initializes, construction throws an
+`AggregateError` with the candidate failures. Unused candidates are disposed.
+The selected adapter remains in use until the store is disposed.
+
+For `[indexedDb(), memory()]`, IndexedDB's default probe only checks that its API
+exists. If opening the database later fails, Silo reports an error; it does not
+switch to memory. A blocked open remains pending until the blocking connection
+closes. Runtime write failures also do not trigger a switch.
+
+If opening a backend must succeed before selection, initialize it before creating
+Silo. The [IndexedDB startup recipe](recipes.md#check-indexeddb-before-startup)
+shows how to choose memory on an open rejection. This is application startup
+logic, not an asynchronous candidate-initialization API in core.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";
@@ -106,7 +111,6 @@ import { memory } from "@priemskiyyy/silo-memory";
 const silo = new Silo({
   storages: {
     default: {
-      // localStorage where the browser grants it, memory everywhere else.
       adapters: [
         localStorageAdapter({ available: () => consent.granted }),
         memory(),
@@ -150,8 +154,8 @@ The rules are the same on every text adapter:
 - Text the format cannot parse throws on read. The core reports it as
   `{ state: "error", error: { phase: "hydrate" } }`, reads the fallback, and
   leaves the raw text in place so `set` can overwrite it.
-- An observed change whose text will not parse is dropped rather than applied,
-  so bad data from another tab never replaces a good snapshot.
+- An observed change whose text will not parse reports an observation error.
+  The current value is preserved and status reports `read` after initial hydration.
 - Changing the format over existing data is a migration, because the stored
   text stays what the old format wrote. See [Migrations](migrations.md).
 
@@ -227,9 +231,9 @@ export const silo = new Silo({
 });
 ```
 
-| Option      | Default      | Meaning                                            |
-| ----------- | ------------ | -------------------------------------------------- |
-| `available` | `() => true` | Replaces the probe, so the floor can be gated too. |
+| Option      | Default      | Meaning                                       |
+| ----------- | ------------ | --------------------------------------------- |
+| `available` | `() => true` | Overrides the synchronous availability check. |
 
 One `Map` per adapter, with `structuredClone` on write and again on read. That
 is what makes it a store rather than a bag of live references: after
@@ -242,7 +246,7 @@ hydration or assert against it afterwards. `keys` lists the map, and
 
 - **Nothing persists.** The store lives in the adapter instance. Two `memory()`
   calls share nothing, and `dispose()` clears it. Put it last in a candidate
-  list so it is the floor rather than the choice.
+  list when memory is an acceptable fallback.
 - **Its corpus is wider than the web's.** `Date`, `Map`, `Set`, `RegExp`,
   `BigInt`, typed arrays and circular references survive here and through
   IndexedDB, and none of them survive a text adapter under JSON. A schema
@@ -558,7 +562,7 @@ path is never reached.
 
 A plain-text format keeps strings unquoted in the link, `?note=hello` instead
 of `?note=%22hello%22`; the [Fieldbook example](examples.md) ships one, with an
-integer codec beside it for the keys that are not strings.
+coercing Zod schema to read numeric parameters.
 
 #### Traps
 
@@ -894,7 +898,7 @@ const silo = new Silo({
   storages: {
     default: {
       adapters: [
-        // iOS only, so the probe reads the platform and Android lands on MMKV.
+        // iOS only, so the probe reads the platform and Android uses MMKV.
         icloud({ store: CloudStore, available: () => Platform.OS === "ios" }),
         mmkv({ storage: new MMKV({ id: "app" }) }),
         memory(),
@@ -1181,7 +1185,7 @@ so this package depends on no client library. `native` is the client. No
   pass `match` on a shared Redis, `"silo:*"` for the default namespace, so a
   migration only ever sees the store's own keys.
 - **Upstash needs `automaticDeserialization: false`.** Otherwise its `get`
-  parses stored JSON itself and hands back an object where the adapter expects
+  parses stored JSON itself and returns an object where the adapter expects
   text.
 - **No Redis TTL is set.** A value with an expiry expires lazily, on the read
   that finds it stale, and is then removed; until that read the key stays in
@@ -1241,7 +1245,7 @@ No `observe`.
   write, so KV suits per-user settings and feature flags, not a counter. A
   counter belongs in a Durable Object.
 - **A store per request.** The binding outlives the request; the store should
-  not. `dispose` releases nothing and deletes nothing.
+  not. `dispose` leaves the underlying data and client intact.
 
 ### Cloudflare Durable Objects
 
@@ -1470,12 +1474,12 @@ const settings = silo.value("remote.settings");
 settings.subscribe(() => render(settings.get())); // runs when any device writes
 ```
 
-| Option      | Default               | Meaning                                                                                            |
-| ----------- | --------------------- | -------------------------------------------------------------------------------------------------- |
-| `adapter`   | required              | The adapter that holds the data. Its mode, `native` and `keys` are the bridge's.                   |
-| `channel`   | required              | Anything with `subscribe(onPublication)` returning a stop; `realtime.channel(name)` fits as it is. |
-| `publish`   | none                  | Announces this device's own writes after each one lands, for a setup where the server does not.    |
-| `available` | the wrapped adapter's | Replaces the probe.                                                                                |
+| Option      | Default               | Meaning                                                                                               |
+| ----------- | --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `adapter`   | required              | The adapter that holds the data. Its mode, `native` and `keys` are the bridge's.                      |
+| `channel`   | required              | Anything with `subscribe(onPublication)` returning a stop; `realtime.channel(name)` fits as it is.    |
+| `publish`   | none                  | Announces this device's own writes after each write completes, for a setup where the server does not. |
+| `available` | the wrapped adapter's | Replaces the probe.                                                                                   |
 
 Live change notifications for any adapter, delivered over a
 [simulcast](https://priemskiyyy.github.io/simulcast/) channel on whichever
@@ -1490,7 +1494,7 @@ simulcast owns the realtime subscription.
    natural announcer is the server that stored the value. For a setup without
    one, such as `localStorage` plus a `BroadcastChannel` provider, pass
    `publish` and the bridge announces this device's own writes after each one
-   lands, never before, and never for a write that failed.
+   completes. Failed writes are not announced.
 3. Every other device's store is subscribed to the channel through the bridge's
    `observe`. A publication arrives as an outside change: the snapshot updates,
    subscribers are notified, nothing is re-read.
@@ -1531,17 +1535,15 @@ traffic.
 
 ## On the server
 
-The browser adapters survive a server render without a guard: nothing runs at
-import and nothing runs in the factory, and their probes answer `false`, so a
-candidate list that ends in `memory()` lands there. Where a browser adapter is
-the only candidate, `get` reads `undefined`, so every value takes its fallback,
-`native` is `null`, and `set` and `remove` throw a named error the core turns
-into a write-error status rather than a crash. `memory()` works anywhere and is
-the adapter to use when a server render has to store something. The server
-adapters, Redis, KV, Durable Objects, unstorage, SQLite and the JSON file, are
-the other half: a store constructed per request or per process, with
-asynchronous migrations where the backend is. See
-[Server rendering](server-rendering.md).
+Browser adapters can be imported and constructed on the server. Their default
+availability checks fail when the corresponding browser API is absent, allowing
+a following memory adapter to be selected. Used alone, localStorage,
+sessionStorage, cookie, and searchParams return absent values and report failed
+writes; IndexedDB reads also fail without its API.
+
+For persistent server data, use an appropriate server adapter and initialize its
+client in the application. Keep mutable request state in a request-local Silo.
+See [Server rendering](server-rendering.md) for lifecycle and React examples.
 
 ## Adding one
 

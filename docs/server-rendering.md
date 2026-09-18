@@ -1,171 +1,167 @@
 ---
-description: "Server rendering with Silo: how browser adapters fail their probe, why lists land on memory, what the React hooks render, and how to avoid mismatches."
+description: "Render persisted values without React hydration mismatches, create a store per request, and handle browser-only storage on the server."
 ---
 
 # Server rendering
 
-## What happens on the server
+The server usually cannot read a browser's localStorage or IndexedDB. Its initial
+value may differ from the browser's saved value. For React, render a consistent
+placeholder while `useValueStatus` reports `hydrating`.
 
-A browser adapter survives a server render without a guard, because being
-cold is part of the contract. Nothing runs at module import, nothing runs in
-the factory call, and the platform is resolved on first use inside a
-`try`/`catch`, since the `globalThis.localStorage` getter itself throws
-`SecurityError` where site data is blocked.
+Create one store per server request and one for the browser application. Do not
+share a mutable Silo instance between requests.
 
-| Adapter                              | `available()` on a server   | `get`                                        | `set` and `remove`          | `native`   |
-| ------------------------------------ | --------------------------- | -------------------------------------------- | --------------------------- | ---------- |
-| `localStorage()`, `sessionStorage()` | `false`                     | `undefined`, so every key reads its fallback | throw a named error         | `null`     |
-| `cookie()`                           | `false`                     | `undefined`                                  | throw a named error         | `null`     |
-| `searchParams()`                     | `false`                     | `undefined`                                  | throw a named error         | `null`     |
-| `indexedDb()`                        | `false` without `indexedDB` | rejects, naming the database                 | reject, naming the database | the handle |
-| `memory()`                           | `true`                      | reads the in-process map                     | write the map               | the `Map`  |
+## A React setup
 
-Two things follow.
+Install the core, React binding, localStorage adapter, and memory adapter.
+Keep the store factory in a shared module:
 
-**A candidate list lands on memory.** `[localStorage(), memory()]` chooses
-`memory()` on the server, because the probe fails, so nothing throws and
-every key reads its fallback or whatever the request wrote. This is the
-recommended shape for every browser storage, and it is why the examples end
-every list with `memory()`.
+```ts
+// store.ts
+import { Silo, value } from "@priemskiyyy/silo";
+import { localStorage } from "@priemskiyyy/silo-local-storage";
+import { memory } from "@priemskiyyy/silo-memory";
 
-**A lone browser adapter still does not crash.** With `[localStorage()]`
-alone, the last candidate is taken regardless of its probe. Reads answer
-`undefined` and a write becomes a `write` error on the value's status, which
-nothing on the server reads. The error names what is missing, so it is
-recognizable in a log:
-
-```
-Cannot write "silo:theme" through the local-storage adapter: this environment
-has no localStorage, so nothing was persisted.
+export const createSilo = () =>
+  new Silo({
+    storages: {
+      default: {
+        adapters: [localStorage(), memory()],
+        schema: { theme: value<"light" | "dark">({ fallback: "light" }) },
+      },
+    },
+  });
 ```
 
-## What the hooks render
-
-| Hook               | Server value                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `useValue`         | the value's current snapshot, which is the schema fallback unless the request wrote |
-| `useValueStatus`   | `{ state: "hydrating" }`, an interned constant                                      |
-| `useSiloStatus`    | `{ state: "migrating" }`, an interned constant                                      |
-| `useNativeStorage` | whatever each storage's `native` is, `null` for a browser adapter                   |
-| `useSilo`          | the store from the provider                                                         |
-
-`useValue` passes the value's own `get` as React's `getServerSnapshot`. The
-snapshot keeps a stable reference between changes. That prevents repeated
-reads from creating new objects, but does not guarantee that server and client
-markup match. The client may already hold a different persisted value.
-
-## Hydration
-
-React calls `getServerSnapshot` on the server and on the hydrating client
-render, then re-reads the live snapshot once hydration finishes. What that
-means depends on the storage's mode.
-
-**An asynchronous storage initially exposes the fallback.** If hydration is
-still pending when React hydrates the component, both sides can render that
-fallback. A read that finishes earlier may already have changed the client
-snapshot, so asynchronous storage alone does not guarantee matching markup.
-
-**On a synchronous storage the hydrating render already reads storage.**
-`getServerSnapshot` is the value's `get`, and on `localStorage()` that
-returns the persisted value in the same frame. If the browser has a
-preference the server could not know about, React reports a hydration
-mismatch and regenerates the tree:
-
-```
-Hydration failed because the server rendered text didn't match the client.
-```
-
-Use a consistent placeholder for storage-dependent content during React
-hydration, or provide matching initial data on the server and client.
-
-## Gate on status
-
-`useValueStatus` renders `{ state: "hydrating" }` on the server and on the
-hydrating render, on both modes, so a component that branches on it produces
-identical markup on both sides:
+The component uses the same placeholder on the server and during React's
+hydrating render:
 
 ```tsx
+// App.tsx
 import { useValue, useValueStatus } from "@priemskiyyy/silo-react";
+import type { createSilo } from "./store";
 
-export const Theme = () => {
-  const [theme] = useValue("theme");
-  const status = useValueStatus("theme");
+export const App = ({ silo }: { silo: ReturnType<typeof createSilo> }) => {
+  const handle = silo.value("theme");
+  const [theme, setTheme] = useValue(handle);
+  const status = useValueStatus(handle);
 
-  // Identical on the server and on the hydrating render, on either mode,
-  // so nothing mismatches. The stored value arrives right after.
   if (status.state === "hydrating") {
-    return <p>Loading</p>;
+    return <button disabled>Loading theme…</button>;
   }
 
-  return <p>{String(theme)}</p>;
+  return (
+    <button
+      onClick={() =>
+        setTheme((previous) => (previous === "dark" ? "light" : "dark"))
+      }
+    >
+      {theme}
+    </button>
+  );
 };
 ```
 
-`useSiloStatus` reads `migrating` on the same two renders, so it is the
-same kind of gate for a whole subtree. With either, a synchronous storage
-hydrates with zero recoverable errors and the stored value appears on the
-next render. Render a skeleton of the same shape rather than nothing, so
-the swap does not move the page.
+A server entry can create and dispose the request's store around rendering:
 
-## A value that must be right in the first paint
+```tsx
+import { renderToString } from "react-dom/server";
+import { App } from "./App";
+import { createSilo } from "./store";
 
-Two answers, both outside React:
+export const render = () => {
+  const silo = createSilo();
+  try {
+    return renderToString(<App silo={silo} />);
+  } finally {
+    silo.dispose();
+  }
+};
+```
 
-- **A cookie the server can read.** `cookie()` is the one browser storage a
-  server sees on every request. Keep the preference in a `preferences`
-  storage over `cookie()`, read `fieldbook:theme` from the request's cookie
-  header on the server, and render it. The physical key is the cookie's
-  name, so nothing has to be reverse engineered. See
-  [storages and namespaces](storages.md).
-- **A blocking inline script.** Read the same physical key from
-  `localStorage` before React runs and set a `data-theme` attribute. Keys
-  are stable and documented, and a text backend stores JSON, so the script
-  is a `getItem` and a `JSON.parse` inside a `try`. The
-  [recipes](recipes.md) page has the script the Fieldbook example uses.
+For streaming rendering, keep the store until the stream finishes or is
+cancelled. If the request writes data, await `silo.flush()` before disposal.
+
+In the browser entry, create another instance once and pass it to the same
+component:
+
+```tsx
+import { hydrateRoot } from "react-dom/client";
+import { App } from "./App";
+import { createSilo } from "./store";
+
+const root = document.getElementById("root");
+if (root === null) {
+  throw new Error("Missing root element");
+}
+const silo = createSilo();
+hydrateRoot(root, <App silo={silo} />);
+```
+
+The server chooses memory because localStorage is absent. The browser chooses
+localStorage when its availability check passes. React initially renders the
+placeholder in both environments, then reads the live status and value.
+
+## What React reads during hydration
+
+| Hook             | Server and hydrating client render |
+| ---------------- | ---------------------------------- |
+| `useValue`       | The handle's current snapshot      |
+| `useValueStatus` | `{ state: "hydrating" }`           |
+| `useSiloStatus`  | `{ state: "migrating" }`           |
+
+`useValue` uses the handle's `get` for React's `getServerSnapshot`. This keeps
+object identity stable but does not supply matching server and client data.
+A synchronous browser read may already contain the user's preference. An
+asynchronous read may also finish before React hydrates. Choose a placeholder
+or arrange matching initial data on both sides.
+
+These status snapshots are specific to the React binding. Vue, Solid, and
+Svelte use their own SSR behavior; see their framework pages and coordinate
+server/client values in the application's framework integration.
+
+## Browser adapter behavior on the server
+
+Constructing a browser adapter does not open storage. With default probes,
+`[localStorage(), memory()]` selects memory when the browser API is absent.
+The same pattern works for the other browser adapters.
+
+A lone browser adapter whose probe returns `false` now makes `new Silo()` throw.
+Use `[localStorage(), memory()]` for a browser-or-memory choice, or pass a server
+adapter explicitly. Calling an unavailable adapter directly still follows that
+adapter's raw contract; Silo checks availability before selecting it.
+
+Selection happens once, through synchronous availability checks. It does not
+retry another adapter after an asynchronous open failure. See
+[adapter initialization](adapters.md#candidate-lists-and-available).
+
+## A theme before the first paint
+
+For a page background, even a placeholder can cause a visible color change.
+Two application-level approaches are available:
+
+- Read a preference from the request's cookie header and include it in the
+  initial HTML. The browser `cookie()` adapter uses `document.cookie`; it does
+  not read server request headers for you.
+- Run an inline script before rendering that reads the same localStorage key
+  and sets the document's theme. See the [theme recipe](recipes.md#a-theme-with-no-flash-on-a-warm-start).
+
+Keep the script's key mapping, format, and validation consistent with the store.
+If a content security policy is enabled, configure the script's nonce or hash
+through the application's normal script handling.
 
 ## React Server Components
 
-The published React bundle preserves `"use client"`, so
-`@priemskiyyy/silo-react` can be imported from a server component tree with
-no extra configuration. The provider and the hooks still have to be used
-from client components: they are stateful and they subscribe to a store.
+The React package includes `"use client"`. Use its hooks and provider inside a
+client component. A Silo instance cannot be passed across the server-component
+to client-component boundary as a serialized prop. Create the instance within
+the client integration, using the framework's request and application lifecycle.
 
-## Isolate requests
-
-A `Silo` owns mutable state: one record per key per scope, each with a
-snapshot, a status, a revision and a write queue. A module-level store on a
-server is shared by every request and therefore by every user, and it is the
-one mistake in this area that is not cosmetic.
-
-- **In the browser, a module-level store is right.** One `Silo` per
-  application, constructed once, disposed when the application is torn
-  down.
-- **On a server, construct per request** where a framework requires
-  server-side state, over `memory()` for state that belongs to the render or
-  over `redis()` for state that must outlive it. Dispose it when the
-  request ends.
-- **Never share a store between users.** Scoping by user with
-  `silo.scope(...)` partitions keys, not the record map, and the snapshots in
-  it are as shared as the store is.
-
-```ts
-import { Silo, value } from "@priemskiyyy/silo";
-import { memory } from "@priemskiyyy/silo-memory";
-
-const schema = { theme: value<"light" | "dark">({ fallback: "light" }) };
-
-// Called once per request, never hoisted to module scope on a server.
-export const createRequestSilo = () =>
-  new Silo({ storages: { default: { adapters: [memory()], schema } } });
-```
-
-A `Silo` is a stateful class instance, so it cannot be passed from a server
-component to a client one as a prop. Construct it in the client boundary
-that renders `SiloProvider`, which is where it belongs anyway.
+The `App` prop in the example above is for conventional React SSR, where the
+server and browser construct their own instance separately.
 
 ## Related
 
-- [React](react.md) for the hooks and the `Register` augmentation.
-- [Adapters](adapters.md) for each backend's server behavior.
-- [Troubleshooting](troubleshooting.md) for the flicker and the mismatch as
-  symptoms.
+- [React](react.md) for provider-based hooks and type registration.
+- [Errors and recovery](errors-and-recovery.md) for failed reads and writes.
+- [Hydration and flush](hydration-and-flush.md) for waiting on storage operations.

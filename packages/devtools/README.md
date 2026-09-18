@@ -46,7 +46,7 @@ throws; recorded events survive an unmount and reappear on the next mount.
 
 The header carries the store status and the migration version. The sidebar
 lists every storage with the adapter that won and its mode, amber when that is
-the memory floor, and under each the records the application reached, with
+the memory fallback, and under each the records the application reached, with
 scope, status and write counters. Selecting a record filters the timeline to
 it plus migration and store events, and opens its detail: the physical key, a
 bounded snapshot with a copy button, a JSON field to set a new value, and a
