@@ -64,3 +64,28 @@ test("a raw that is not an envelope on an expiring key is a bare, never expiring
     value: { value: "x" },
   });
 });
+
+test.each(["expires", "at", "value", "has"])(
+  "a throwing envelope %s is an invalid value",
+  (property) => {
+    const failure = new Error("Cannot read envelope");
+    const raw = { value: "stored", expires: { at: 6_000 } };
+    const codec = new ValueCodec({ definition: expiring, now });
+    if (property === "has") {
+      const proxy = new Proxy(raw, {
+        has: () => {
+          throw failure;
+        },
+      });
+      expect(codec.decode(proxy)).toEqual({ kind: "invalid", error: failure });
+      return;
+    }
+    Object.defineProperty(property === "at" ? raw.expires : raw, property, {
+      get: () => {
+        throw failure;
+      },
+    });
+
+    expect(codec.decode(raw)).toEqual({ kind: "invalid", error: failure });
+  },
+);

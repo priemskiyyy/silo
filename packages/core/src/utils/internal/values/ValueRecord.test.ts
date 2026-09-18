@@ -128,6 +128,50 @@ test("invalid outside data does not cancel initial hydration", async () => {
   silo.dispose();
 });
 
+test.each(["sync", "async"])(
+  "a throwing expiry getter settles hydration and is ignored in external changes (%s)",
+  async (mode) => {
+    const mock =
+      mode === "async" ? createMockAdapter({ mode }) : createMockAdapter();
+    const failure = new Error("Cannot read expiry");
+    const raw = {
+      value: "stored",
+      get expires() {
+        throw failure;
+      },
+    };
+    mock.store.set("silo:token", raw);
+    const silo = new Silo({
+      storages: {
+        default: {
+          adapters: [mock.adapter],
+          schema: {
+            token: value({ fallback: "fallback", expires: { in: 1_000 } }),
+          },
+        },
+      },
+    });
+    const token = silo.value("token");
+    await token.hydrated();
+
+    expect(token.get()).toBe("fallback");
+    expect(token.status.get()).toEqual({
+      state: "error",
+      error: { phase: "hydrate", cause: failure },
+    });
+    expect(silo.value("token")).toBe(token);
+    expect(mock.store.get("silo:token")).toBe(raw);
+
+    token.set("recovered");
+    await token.flush();
+    mock.emit({ key: "silo:token", value: raw });
+
+    expect(token.get()).toBe("recovered");
+    expect(token.status.get()).toEqual({ state: "ready" });
+    silo.dispose();
+  },
+);
+
 test("disposal inside a status callback stops the remaining notifications", () => {
   const mock = createMockAdapter({ mode: "async" });
   const silo = new Silo({

@@ -45,15 +45,15 @@ export class ValueCodec {
     }
     const { definition, now } = this.#options;
 
-    // Bare values predate expiry support and remain readable without a deadline.
-    if (definition.expires !== undefined && isEnvelope(raw)) {
-      if (raw.expires.at <= now()) {
-        return { kind: "expired" };
-      }
-      raw = raw.value;
-    }
-
     try {
+      // Bare values predate expiry support and remain readable without a deadline.
+      if (definition.expires !== undefined && isEnvelope(raw)) {
+        if (raw.expires.at <= now()) {
+          return { kind: "expired" };
+        }
+        raw = raw.value;
+      }
+
       return { kind: "value", value: definition.decode(raw) };
     } catch (error) {
       return { kind: "invalid", error };
