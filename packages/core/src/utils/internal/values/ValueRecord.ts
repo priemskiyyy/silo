@@ -15,7 +15,11 @@ import { WriteQueue } from "src/utils/internal/values/WriteQueue";
 import { KEY_SEPARATOR } from "src/utils/constants/keyspace";
 
 type Snapshot = Pick<SiloSnapshot["records"][number], "value" | "status">;
-type ReadReservation = { revision: number; source: "HYDRATION" | "EXTERNAL" };
+type ReadReservation = {
+  revision: number;
+  source: "HYDRATION" | "EXTERNAL";
+  completion: ReturnType<typeof deferred<void>> | undefined;
+};
 type Lifecycle =
   | { state: "BLOCKED" }
   | { state: "ACTIVE" }
@@ -78,6 +82,7 @@ export class ValueRecord {
       set: this.set,
       remove: this.remove,
       hydrated: () => this.#hydrated(),
+      reload: () => this.reload(),
       flush: this.flush,
     };
 
@@ -176,10 +181,32 @@ export class ValueRecord {
     return this.#inspection;
   }
 
-  reload() {
+  invalidate() {
     return this.#load(
       this.#state.get().status.state === "hydrating" ? "HYDRATION" : "EXTERNAL",
     );
+  }
+
+  reload(): Promise<void> {
+    if (this.#lifecycle.state === "DISPOSED") {
+      return Promise.reject(new Error(this.#lifecycle.reason));
+    }
+    if (this.#writes.dirty) {
+      return this.flush().then(() => this.reload());
+    }
+    if (this.#read?.completion !== undefined) {
+      return this.#read.completion.promise;
+    }
+    const completion = deferred();
+    if (this.#read !== null) {
+      this.#read.completion = completion;
+      return completion.promise;
+    }
+    this.#load(
+      this.#state.get().status.state === "hydrating" ? "HYDRATION" : "EXTERNAL",
+      completion,
+    );
+    return completion.promise;
   }
 
   receive(raw: unknown) {
@@ -214,6 +241,7 @@ export class ValueRecord {
     }
 
     this.#lifecycle = { state: "DISPOSED", reason };
+    this.#read?.completion?.reject(new Error(reason));
     this.#cancelAdmission?.();
     this.#cancelAdmission = undefined;
     this.#read = null;
@@ -297,7 +325,10 @@ export class ValueRecord {
     this.#publish(revision, snapshot);
   }
 
-  #load(source: ReadReservation["source"]) {
+  #load(
+    source: ReadReservation["source"],
+    completion = this.#read?.completion,
+  ) {
     if (this.#lifecycle.state === "DISPOSED") {
       return;
     }
@@ -307,7 +338,7 @@ export class ValueRecord {
       return;
     }
 
-    const read = { revision: this.#revision, source };
+    const read = { revision: this.#revision, source, completion };
     this.#read = read;
     this.#readStored(read);
   }
@@ -355,6 +386,10 @@ export class ValueRecord {
       return;
     }
 
+    if (inbound.kind === "invalid") {
+      read.completion?.reject(inbound.error);
+    }
+
     if (read.source === "HYDRATION") {
       this.#trace("hydrate landed", () => ({
         outcome: inbound.kind,
@@ -368,8 +403,10 @@ export class ValueRecord {
     }
 
     if (read.source === "EXTERNAL") {
-      this.#read = null;
       this.#handleExternal(inbound);
+      if (this.#read === read) {
+        this.#read = null;
+      }
       return;
     }
 
@@ -440,6 +477,7 @@ export class ValueRecord {
     }
 
     // Keep the read reserved through diagnostic callbacks until the snapshot commits.
+    this.#read?.completion?.resolve();
     this.#read = null;
     this.#hydration?.resolve();
     this.#hydration = undefined;

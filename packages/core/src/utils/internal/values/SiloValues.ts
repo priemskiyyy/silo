@@ -171,7 +171,7 @@ export class SiloValues<TStorages extends Storages> {
     }
 
     if (change.key === null) {
-      [...records.values()].forEach((record) => record.reload());
+      [...records.values()].forEach((record) => record.invalidate());
       return;
     }
 

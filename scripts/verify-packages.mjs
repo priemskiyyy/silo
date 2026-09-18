@@ -276,8 +276,10 @@ expectType<Equal<ReturnType<typeof silo.value<"widened">>["get"], () => string |
 // a schema-validated key reads as the validator's output, with nothing declared
 expectType<Equal<ReturnType<typeof silo.value<"validated">>["get"], () => User | undefined>>(true);
 
-// SiloValue.get is synchronous and hydrated()/flush() are Promise<void>, on BOTH modes
-const asyncSilo = new Silo({ storages: { default: { adapters: [indexedDb()], schema: schema } } });
+// SiloValue.get is synchronous; completion methods return Promise<void>.
+const asyncSilo = new Silo({ storages: { default: { adapters: [indexedDb()], schema: Schema } } });
+expectType<Equal<ReturnType<typeof silo.value<"theme">>["reload"], () => Promise<void>>>(true);
+expectType<Equal<ReturnType<typeof asyncSilo.value<"theme">>["reload"], () => Promise<void>>>(true);
 expectType<Equal<ReturnType<typeof silo.value<"theme">>["hydrated"], () => Promise<void>>>(true);
 expectType<Equal<ReturnType<typeof asyncSilo.value<"theme">>["hydrated"], () => Promise<void>>>(true);
 expectType<Equal<ReturnType<typeof silo.value<"theme">>["flush"], () => Promise<void>>>(true);

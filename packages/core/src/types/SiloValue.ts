@@ -11,7 +11,8 @@ import type { ValueStatus } from "src/types/ValueStatus";
  * therefore immutable; mutating what you passed to `set` corrupts the snapshot
  * with no notification. Acquiring the handle with `silo.value(key)` starts
  * hydration; reading or subscribing to an existing handle does not reload it.
- * Adapter write failures appear on status and flush; encoding errors throw.
+ * `reload` explicitly reads again after writes finish. Adapter write failures
+ * appear on status and flush; encoding errors throw.
  *
  * @example
  * ```ts
@@ -25,5 +26,11 @@ export type SiloValue<TValue> = ObservableValue<TValue> & {
   remove: () => void;
   status: ObservableValue<ValueStatus>;
   hydrated: () => Promise<void>;
+  /**
+   * Reads storage again after pending writes finish. Rejects on read or write failure.
+   * A newer local write or valid external value supersedes the read.
+   * @example `await theme.reload();`
+   */
+  reload: () => Promise<void>;
   flush: () => Promise<void>;
 };

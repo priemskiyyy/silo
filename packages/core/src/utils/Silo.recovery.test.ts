@@ -1,10 +1,13 @@
 import { expect, test, vi } from "vitest";
 import { createMockAdapter } from "src/mock/createMockAdapter";
+import type { StorageAdapter } from "src/types/StorageAdapter";
 import type { StorageChange } from "src/types/StorageChange";
 import { Silo } from "src/utils/Silo";
 import { value } from "src/utils/value";
 
 const Schema = { count: value({ fallback: 0 }) };
+const createSilo = (adapter: StorageAdapter) =>
+  new Silo({ storages: { default: { adapters: [adapter], schema: Schema } } });
 
 test.each(["available", "native", "observe"])(
   "startup falls through a failed %s before migrations or data access",
@@ -80,4 +83,163 @@ test("exhausted candidates retain each initialization cause", () => {
   );
   expect(first.disposeCount()).toBe(1);
   expect(second.disposeCount()).toBe(1);
+});
+
+test.each(["sync", "async"])(
+  "reload recovers a failed first read (%s)",
+  async (mode) => {
+    const mock =
+      mode === "async" ? createMockAdapter({ mode }) : createMockAdapter();
+    const failure = new Error("temporarily unavailable");
+    const read = vi.spyOn(mock.adapter, "get").mockImplementationOnce(() => {
+      throw failure;
+    });
+    const silo = createSilo(mock.adapter);
+    const count = silo.value("count");
+    await count.hydrated();
+    expect(count.status.get()).toEqual({
+      state: "error",
+      error: { phase: "hydrate", cause: failure },
+    });
+    mock.store.set("silo:count", 7);
+    await count.reload();
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(count.get()).toBe(7);
+    expect(count.status.get()).toEqual({ state: "ready" });
+    expect(silo.value("count")).toBe(count);
+    silo.dispose();
+  },
+);
+
+test("reload joins an initial read and concurrent reloads share one operation", async () => {
+  const mock = createMockAdapter({ mode: "async", hold: true });
+  const silo = createSilo(mock.adapter);
+  const count = silo.value("count");
+  const first = count.reload();
+  expect(count.reload()).toBe(first);
+  expect(mock.calls).toHaveLength(1);
+  mock.calls[0]?.fail(new Error("offline"));
+  await expect(first).rejects.toThrow("offline");
+  await count.hydrated();
+  expect(count.status.get()).toMatchObject({ error: { phase: "hydrate" } });
+  silo.dispose();
+});
+
+test("reload waits for writes and cannot replace a newer local mutation", async () => {
+  const mock = createMockAdapter({ mode: "async", hold: true });
+  const silo = createSilo(mock.adapter);
+  const count = silo.value("count");
+  count.set(1);
+  const reloaded = count.reload();
+  expect(mock.calls.map(({ operation }) => operation)).toEqual(["get", "set"]);
+  mock.calls[1]?.settle();
+  await vi.waitFor(() => expect(mock.calls).toHaveLength(3));
+  count.set(2);
+  await reloaded;
+  mock.calls[2]?.settle();
+  mock.calls[0]?.settle();
+  mock.calls[3]?.settle();
+  await count.flush();
+  expect(count.get()).toBe(2);
+  expect(mock.store.get("silo:count")).toBe(2);
+  silo.dispose();
+});
+
+test("reload refuses to overwrite an unsaved snapshot after a failed write", async () => {
+  const mock = createMockAdapter();
+  const silo = createSilo(mock.adapter);
+  const count = silo.value("count");
+  const failure = new Error("quota");
+  vi.spyOn(mock.adapter, "set").mockImplementationOnce(() => {
+    throw failure;
+  });
+  count.set(9);
+  const reads = mock.calls.filter(
+    ({ operation }) => operation === "get",
+  ).length;
+  await expect(count.reload()).rejects.toBe(failure);
+  expect(count.get()).toBe(9);
+  expect(
+    mock.calls.filter(({ operation }) => operation === "get"),
+  ).toHaveLength(reads);
+  count.set(count.get());
+  await count.reload();
+  expect(count.get()).toBe(9);
+  silo.dispose();
+});
+
+test.each(["release", "dispose"])(
+  "%s cancels an outstanding reload",
+  async (operation) => {
+    const mock = createMockAdapter({ mode: "async", hold: true });
+    const silo = createSilo(mock.adapter);
+    const count = silo.value("count");
+    mock.calls[0]?.settle();
+    await count.hydrated();
+    const reloaded = count.reload();
+    if (operation === "release") {
+      await silo.release();
+    } else {
+      silo.dispose();
+    }
+    await expect(reloaded).rejects.toThrow(
+      operation === "release" ? "released" : "disposed",
+    );
+    await expect(count.reload()).rejects.toThrow(
+      operation === "release" ? "released" : "disposed",
+    );
+    mock.store.set("silo:count", 99);
+    mock.calls[1]?.settle();
+    await Promise.resolve();
+    expect(count.get()).toBe(0);
+    silo.dispose();
+  },
+);
+
+test("a valid external change supersedes a pending reload", async () => {
+  const mock = createMockAdapter({ mode: "async", hold: true });
+  const silo = createSilo(mock.adapter);
+  const count = silo.value("count");
+  mock.calls[0]?.settle();
+  await count.hydrated();
+  const reloaded = count.reload();
+  mock.emit({ key: "silo:count", value: 8 });
+  await reloaded;
+  mock.calls[1]?.fail(new Error("stale failure"));
+  await Promise.resolve();
+  expect(count.get()).toBe(8);
+  expect(count.status.get()).toEqual({ state: "ready" });
+  silo.dispose();
+});
+
+test("a coarse change replaces a pending reload without settling it early", async () => {
+  const mock = createMockAdapter({ mode: "async", hold: true });
+  const silo = createSilo(mock.adapter);
+  const count = silo.value("count");
+  mock.calls[0]?.settle();
+  await count.hydrated();
+  const reloaded = count.reload();
+  const completed = vi.fn();
+  reloaded.then(completed);
+  mock.emit({ key: null });
+  mock.calls[1]?.settle();
+  await Promise.resolve();
+  expect(completed).not.toHaveBeenCalled();
+  mock.store.set("silo:count", 6);
+  mock.calls[2]?.settle();
+  await reloaded;
+  expect(count.get()).toBe(6);
+  silo.dispose();
+});
+
+test("disposal inside a reload diagnostic callback rejects its waiter", async () => {
+  const mock = createMockAdapter();
+  const silo = createSilo(mock.adapter);
+  const count = silo.value("count");
+  silo.diagnostics.events.subscribe((event) => {
+    if (event.type === "outside applied") {
+      silo.dispose();
+    }
+  });
+  await expect(count.reload()).rejects.toThrow("disposed");
 });
