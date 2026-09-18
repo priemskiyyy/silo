@@ -35,8 +35,6 @@ import { SiloValues } from "src/utils/internal/values/SiloValues";
  * ```
  */
 export class Silo<TStorages extends Storages = Storages> {
-  #keyspaces;
-  #backends;
   #migrations;
   #values;
   #lifetime = new Lifetime();
@@ -92,11 +90,9 @@ export class Silo<TStorages extends Storages = Storages> {
       }
 
       migrations.start();
-      return { native, migrations, values, keyspaces, backends };
+      return { native, migrations, values };
     });
 
-    this.#keyspaces = acquired.keyspaces;
-    this.#backends = acquired.backends;
     this.#migrations = acquired.migrations;
     this.#values = acquired.values;
     this.native = acquired.native;
@@ -139,27 +135,13 @@ export class Silo<TStorages extends Storages = Storages> {
     }
   };
 
-  #inspect = (): SiloSnapshot => ({
-    status: this.#migrations.status.get(),
-    version: this.#migrations.inspectVersion(),
-    storages: Object.entries(this.#keyspaces).flatMap(([name, keyspace]) => {
-      const backend = this.#backends[name];
-
-      if (backend === undefined) {
-        return [];
-      }
-
-      return [
-        {
-          name,
-          adapter: backend.adapter.name,
-          mode: backend.execution.mode,
-          namespace: keyspace.namespace,
-        },
-      ];
-    }),
-    records: this.#values.inspect(),
-  });
+  #inspect(): SiloSnapshot {
+    return {
+      status: this.#migrations.status.get(),
+      version: this.#migrations.inspectVersion(),
+      ...this.#values.inspect(),
+    };
+  }
 
   #scope = (parents: string[], segment: string): SiloScope<TStorages> => {
     Keyspace.assertSegment(segment);

@@ -83,6 +83,69 @@ test("a record appears once reached, with its identity, snapshot and write count
   silo.dispose();
 });
 
+test("record creation is visible from its diagnostic event even after a cached empty snapshot", () => {
+  const mock = createMockAdapter();
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+  });
+  expect(silo.diagnostics.get().records).toEqual([]);
+  const seen: string[][] = [];
+  silo.diagnostics.events.subscribe((event) => {
+    if (event.type === "record created") {
+      seen.push(silo.diagnostics.get().records.map((record) => record.path));
+    }
+  });
+
+  silo.value("theme");
+
+  expect(seen).toEqual([["theme"]]);
+  silo.dispose();
+});
+
+test.each(["record created", "scope released"])(
+  "mutating %s context cannot change a scope's address",
+  async (type) => {
+    const mock = createMockAdapter();
+    const silo = new Silo({
+      storages: { default: { adapters: [mock.adapter], schema } },
+    });
+    const scope = silo.scope("account");
+    const contexts: unknown[] = [];
+    silo.diagnostics.events.subscribe((event) => {
+      if (event.type !== type) {
+        return;
+      }
+      const { context } = event;
+      if (
+        typeof context !== "object" ||
+        context === null ||
+        !("segments" in context) ||
+        !Array.isArray(context.segments)
+      ) {
+        return;
+      }
+      context.segments.push("changed");
+      contexts.push(context);
+    });
+
+    const original = scope.value("theme");
+    original.set("dark");
+    expect(scope.value("theme")).toBe(original);
+    await scope.release();
+    const reacquired = scope.value("theme");
+
+    expect(reacquired).not.toBe(original);
+    expect(reacquired).toBe(silo.scope("account").value("theme"));
+    expect(reacquired.get()).toBe("dark");
+    expect([...mock.store.keys()]).toEqual(["silo:account:theme"]);
+    expect(silo.diagnostics.get().records).toMatchObject([
+      { segments: ["account"], physicalKey: "silo:account:theme" },
+    ]);
+    expect(contexts).toHaveLength(type === "record created" ? 2 : 1);
+    silo.dispose();
+  },
+);
+
 test.each([
   { mode: "sync", event: "write accepted" },
   { mode: "async", event: "write accepted" },
@@ -133,6 +196,68 @@ test.each([
       durable: event === "write durable" ? 1 : 0,
       inflight: false,
     },
+  ]);
+  silo.dispose();
+});
+
+test("migration events and status listeners read the version and status being announced", async () => {
+  const mock = createMockAdapter({ mode: "async" });
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+    migrations: { 1: () => {} },
+  });
+  silo.diagnostics.get();
+  const events: unknown[] = [];
+  const statuses: unknown[] = [];
+  silo.diagnostics.events.subscribe((event) => {
+    const snapshot = silo.diagnostics.get();
+    events.push({
+      type: event.type,
+      stored: snapshot.version.stored,
+      status: snapshot.status.state,
+    });
+  });
+  silo.status.subscribe(() => {
+    statuses.push(silo.diagnostics.get().status.state);
+  });
+
+  await silo.ready();
+
+  expect(events).toEqual([
+    { type: "migration version", stored: 0, status: "migrating" },
+    { type: "migration step", stored: 0, status: "migrating" },
+    { type: "migration version", stored: 1, status: "migrating" },
+    { type: "migration done", stored: 1, status: "ready" },
+  ]);
+  expect(statuses).toEqual(["ready"]);
+  silo.dispose();
+});
+
+test("migration failure is visible in diagnostics during its status and event notifications", async () => {
+  const mock = createMockAdapter({ mode: "async" });
+  const failure = new Error("migration failed");
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+    migrations: {
+      1: () => {
+        silo.diagnostics.get();
+        throw failure;
+      },
+    },
+  });
+  const seen: unknown[] = [];
+  silo.status.subscribe(() => seen.push(silo.diagnostics.get().status));
+  silo.diagnostics.events.subscribe((event) => {
+    if (event.type === "migration failed") {
+      seen.push(silo.diagnostics.get().status);
+    }
+  });
+
+  await expect(silo.ready()).rejects.toBe(failure);
+
+  expect(seen).toEqual([
+    { state: "error", error: { phase: "migrate", cause: failure } },
+    { state: "error", error: { phase: "migrate", cause: failure } },
   ]);
   silo.dispose();
 });
@@ -353,6 +478,7 @@ test("disposal releases the registry and closes diagnostics after one final noti
 
   expect(before.records).toHaveLength(1);
   expect(silo.diagnostics.get().records).toEqual([]);
+  expect(silo.diagnostics.get().storages).toEqual(before.storages);
   expect(silo.diagnostics.get()).toBe(silo.diagnostics.get());
   expect(snapshots).toEqual([0]);
   expect(types(events)).toEqual(["store disposed"]);

@@ -138,22 +138,30 @@ export class SiloValues<TStorages extends Storages> {
           type: "scope released",
           storage: null,
           key: null,
-          context: { segments },
+          context: { segments: [...segments] },
         });
       }
       return;
     }
   }
 
-  inspect = (): SiloSnapshot["records"] => {
+  inspect() {
+    const storages: SiloSnapshot["storages"] = [];
     const records: SiloSnapshot["records"] = [];
     for (const backing of this.#backings.values()) {
+      const { name, backend, keyspace } = backing;
+      storages.push({
+        name,
+        adapter: backend.adapter.name,
+        mode: backend.execution.mode,
+        namespace: keyspace.namespace,
+      });
       for (const record of backing.records.values()) {
         records.push(record.inspect());
       }
     }
-    return records;
-  };
+    return { storages, records };
+  }
 
   handleStorageChange = (storage: string, change: StorageChange) => {
     const records = this.#backings.get(storage)?.records;
@@ -233,16 +241,16 @@ export class SiloValues<TStorages extends Storages> {
       diagnostics: this.#diagnostics,
     });
     backing.records.set(key, record);
+    this.#diagnostics.changed();
     if (this.#diagnostics.recording) {
       this.#diagnostics.record({
         source: "value",
         type: "record created",
         storage: backing.name,
         key,
-        context: { path, segments },
+        context: { path, segments: [...segments] },
       });
     }
-    this.#diagnostics.changed();
     return record;
   };
 

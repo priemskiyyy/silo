@@ -220,9 +220,9 @@ export class Migrations {
       return;
     }
     this.#settlement.resolve();
+    this.#options.diagnostics.changed();
     this.#status.set(READY_SILO_STATUS);
     this.#trace("migration done", () => ({ version: this.#version.stored }));
-    this.#options.diagnostics.changed();
   };
 
   #handleError = (cause: unknown) => {
@@ -230,15 +230,15 @@ export class Migrations {
       return;
     }
     this.#settlement.reject(cause);
+    this.#options.diagnostics.changed();
     this.#status.set({ state: "error", error: { phase: "migrate", cause } });
     this.#trace("migration failed", () => ({ cause }));
-    this.#options.diagnostics.changed();
   };
 
   #storedVersion = (version: number) => {
     this.#version.stored = version;
-    this.#trace("migration version", () => ({ version }));
     this.#options.diagnostics.changed();
+    this.#trace("migration version", () => ({ version }));
   };
 
   #trace = (type: string, context: () => unknown) => {
