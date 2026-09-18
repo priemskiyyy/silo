@@ -1,4 +1,4 @@
-import type { KeyspaceDeclaration } from "src/types/KeyspaceDeclaration";
+import type { StorageAdapterShape } from "src/types/StorageAdapterShape";
 import type { TextFormat } from "src/types/TextFormat";
 import type { TextStorageChange } from "src/types/TextStorageChange";
 
@@ -16,20 +16,14 @@ export type TextStorageMappingShape<
   TRead,
   TWrite,
   TKeys,
-> = {
-  mode: TMode;
-  name: string;
-  native: TNative;
+> = Omit<
+  StorageAdapterShape<TMode, TNative, TRead, TWrite, TKeys>,
+  "get" | "set" | "observe"
+> & {
   // `| undefined` on purpose: an adapter forwards its own optional `format`
   // as it is, without a conditional spread at every call site.
   format?: TextFormat | undefined;
   read(key: string): TRead;
   write(key: string, text: string): TWrite;
-  remove(key: string): TWrite;
-  keys?(): TKeys;
-  available(): boolean;
-  /** How this medium wants the store's namespace; absent means `visible`. */
-  readonly keyspace?: KeyspaceDeclaration;
-  dispose(): void;
   observe?(listener: (change: TextStorageChange) => void): () => void;
 };

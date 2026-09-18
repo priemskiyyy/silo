@@ -22,19 +22,20 @@ type Backing = {
   records: Map<string, ValueRecord>;
 };
 
-type Entry = {
-  key: string;
-  definition: ValueDefinition<unknown>;
-  codec: ValueCodec;
-  backing: Backing;
-};
-
 /** Shares one record per storage and physical key across all scope handles. */
 export class SiloValues<TStorages extends Storages> {
   #admit;
   #diagnostics;
   #backings = new Map<string, Backing>();
-  #entries = new Map<string, Entry>();
+  #entries = new Map<
+    string,
+    {
+      key: string;
+      definition: ValueDefinition<unknown>;
+      codec: ValueCodec;
+      backing: Backing;
+    }
+  >();
   #disposed = false;
 
   constructor({

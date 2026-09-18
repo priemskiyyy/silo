@@ -1,7 +1,6 @@
 import type { SiloSnapshot } from "src/types/SiloSnapshot";
 import type { SiloValue } from "src/types/SiloValue";
 import type { ValueDefinition } from "src/types/ValueDefinition";
-import type { ValueStatus } from "src/types/ValueStatus";
 import { assertUnreachable } from "src/utils/common/assertUnreachable";
 import { deferred } from "src/utils/common/deferred";
 import { ValueStore } from "src/utils/common/ValueStore";
@@ -13,10 +12,9 @@ import type { Backend } from "src/utils/internal/adapter/Backend";
 import type { Diagnostics } from "src/utils/internal/Diagnostics";
 import type { Migrations } from "src/utils/internal/migrations/Migrations";
 import type { ValueCodec } from "src/utils/internal/values/ValueCodec";
-import type { WriteRequest } from "src/utils/internal/values/WriteQueue";
 import { WriteQueue } from "src/utils/internal/values/WriteQueue";
 
-type Snapshot = { value: unknown; status: ValueStatus };
+type Snapshot = Pick<SiloSnapshot["records"][number], "value" | "status">;
 type ReadReservation = { revision: number; source: "HYDRATION" | "EXTERNAL" };
 type Lifecycle =
   | { state: "BLOCKED" }
@@ -258,7 +256,10 @@ export class ValueRecord {
     this.#resources?.diagnostics.changed();
   }
 
-  #mutate(request: WriteRequest, value: unknown) {
+  #mutate(
+    request: Parameters<WriteQueue["accept"]>[0]["request"],
+    value: unknown,
+  ) {
     if (this.#lifecycle.state === "DISPOSED") {
       return;
     }

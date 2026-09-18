@@ -2,7 +2,6 @@ import { assertUnreachable } from "src/utils/common/assertUnreachable";
 import { deferred } from "src/utils/common/deferred";
 import type { Backend } from "src/utils/internal/adapter/Backend";
 
-export type WriteRequest = { kind: "set"; raw: unknown } | { kind: "remove" };
 type WriteOperation = Parameters<WriteQueue["accept"]>[0] & {
   generation: number;
 };
@@ -67,7 +66,7 @@ export class WriteQueue {
   }
 
   accept(options: {
-    request: WriteRequest;
+    request: { kind: "set"; raw: unknown } | { kind: "remove" };
     observer: { error: (cause: unknown) => void };
   }) {
     const operation = { ...options, generation: ++this.#generation.accepted };

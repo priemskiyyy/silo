@@ -1,11 +1,6 @@
 import type { StorageAdapter } from "src/types/StorageAdapter";
 import { assertUnreachable } from "src/utils/common/assertUnreachable";
 
-type ReadObserver = {
-  value: (raw: unknown) => void;
-  error: (error: unknown) => void;
-};
-
 type WriteObserver = {
   done: () => void;
   error: (error: unknown) => void;
@@ -24,7 +19,13 @@ export class Backend {
     this.execution = { mode: options.execution?.mode ?? options.adapter.mode };
   }
 
-  get = (key: string, observer: ReadObserver) =>
+  get = (
+    key: string,
+    observer: {
+      value: (raw: unknown) => void;
+      error: (error: unknown) => void;
+    },
+  ) =>
     this.#execute(() => this.adapter.get(key), observer.value, observer.error);
 
   set = (key: string, raw: unknown, observer: WriteObserver) =>

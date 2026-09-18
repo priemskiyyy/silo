@@ -8,7 +8,7 @@ import { Backend } from "src/utils/internal/adapter/Backend";
 export class AcquiredStorages<TStorages extends Storages = Storages> {
   #lifetime = new Lifetime();
 
-  backends: { default: Backend; [name: string]: Backend };
+  backends;
   native: NativeOf<TStorages>;
 
   constructor(storages: TStorages) {
@@ -69,7 +69,9 @@ export class AcquiredStorages<TStorages extends Storages = Storages> {
         throw new Error("A Silo needs a default storage.");
       }
       return {
-        backends: { ...Object.fromEntries(backends), default: primary },
+        backends: Object.assign(Object.fromEntries(backends), {
+          default: primary,
+        }),
         native: Object.fromEntries(native),
       };
     });

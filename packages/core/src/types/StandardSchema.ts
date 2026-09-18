@@ -1,9 +1,7 @@
 // Inlined rather than depended on, even as types: core ships zero dependencies.
-type StandardSchemaIssue = { message: string };
-
 type StandardSchemaResult<TValue> =
   | { value: TValue; issues?: undefined }
-  | { issues: ReadonlyArray<StandardSchemaIssue> };
+  | { issues: ReadonlyArray<{ message: string }> };
 
 /**
  * The part of the Standard Schema v1 contract a value definition reads: a

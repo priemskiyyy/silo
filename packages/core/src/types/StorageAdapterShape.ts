@@ -24,7 +24,7 @@ export type StorageAdapterShape<
   keys?(): TKeys;
   available(): boolean;
   /** How this medium wants the store's namespace; absent means `visible`. */
-  readonly keyspace?: KeyspaceDeclaration;
+  keyspace?: KeyspaceDeclaration;
   dispose(): void;
   observe?(listener: (change: StorageChange) => void): () => void;
 };
