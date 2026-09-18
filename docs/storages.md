@@ -40,11 +40,12 @@ silo.value("url.filter").get(); // "all" | "starred", from the query string
 
 ## Options
 
-| Option      | Meaning                                                                                                                               |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `adapters`  | Candidates in order of preference. The first whose `available()` passes wins; the last is taken regardless. At least one is required. |
-| `schema`    | The keys that live in this storage, as `value(...)` entries. See [Schema and codecs](schema-and-codecs.md).                           |
-| `namespace` | Prefix on this storage's physical keys, overriding the store's. `""` drops the prefix.                                                |
+| Option      | Meaning                                                                                                                                            |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapters`  | Candidates in order of preference. Each must pass availability and synchronous setup. Construction throws if none works. At least one is required. |
+| `schema`    | The keys that live in this storage, as `value(...)` entries. See [Schema and codecs](schema-and-codecs.md).                                        |
+| `namespace` | Prefix on this storage's physical keys, overriding the store's. `""` drops the prefix.                                                             |
+| `keys`      | Optional `{ encode, decode }` mapping between logical Silo addresses and physical storage keys.                                                    |
 
 `default` is required: its keys are addressed bare, and it holds the migration
 version record. Every other storage is addressed as `storage.key`. A storage
@@ -114,8 +115,8 @@ silo.native.journal; // IndexedDbHandle | Map<string, unknown>
 
 ## Physical keys
 
-Every value has one physical key, composed by the core and treated as opaque
-by the adapter:
+By default, the physical key has this layout. A storage's `keys` option can
+translate it to a different physical format:
 
 ```text
 ${namespace}:${...scopeSegments}:${key}
@@ -134,6 +135,97 @@ with the same namespace and the same key name collide, so give them different
 namespaces or different keys. The migration version lives at
 `${namespace}::version` in the default storage, and the store refuses any
 value whose physical key would equal it.
+
+### Isolate storages that share a backend
+
+The `id` entries in `default` and `account` are distinct schema entries but can
+address the same stored value when they share a physical backend and namespace. Separate adapter
+instances do not isolate the browser's localStorage. Set explicit namespaces:
+
+```ts
+const silo = new Silo({
+  namespace: "acme",
+  storages: {
+    default: {
+      namespace: "acme-preferences",
+      adapters: [localStorage()],
+      schema: { id: value<string>() },
+    },
+    account: {
+      namespace: "acme-account",
+      adapters: [localStorage()],
+      schema: { id: value<string>() },
+    },
+  },
+});
+
+silo.value("id").set("preference-id"); // acme-preferences:id
+silo.value("account.id").set("account-id"); // acme-account:id
+```
+
+A storage namespace **replaces** the store namespace, so include the application
+prefix when needed. Changing an existing namespace requires a data migration.
+
+Silo does not detect all overlapping keyspaces. Different SDK clients can point
+to the same backend, and custom mappings can overlap. Check the `physicalKey`
+field in [diagnostics](devtools.md) or Devtools when
+configuring multiple storages over one medium.
+
+## Existing storage keys
+
+A storage's `keys` option can preserve keys written before Silo. `encode`
+receives the full logical address, including its namespace and scope. `decode`
+returns that logical address, or `undefined` for keys this mapping does not own.
+Schema names stay typed and keep their existing restrictions; physical keys can
+contain dots, use different names, or put an ID after the value name.
+
+For example, this mapping preserves a workspace-and-user preference. The IDs in
+this example contain neither dots nor colons:
+
+```ts
+import type { Storages } from "@priemskiyyy/silo";
+
+const workspaceKeys = {
+  encode: (logical: string) => {
+    const match =
+      /^silo:workspaces:([^:]+):users:([^:]+):sidebarCollapsed$/.exec(logical);
+    if (match === null) {
+      return logical;
+    }
+    return `app.${match[1]}.sidebar.collapsed.${match[2]}`;
+  },
+  decode: (physical: string) => {
+    const match = /^app\.([^.]+)\.sidebar\.collapsed\.([^.]+)$/.exec(physical);
+    if (match !== null) {
+      return `silo:workspaces:${match[1]}:users:${match[2]}:sidebarCollapsed`;
+    }
+    if (physical.startsWith("silo:")) {
+      return physical;
+    }
+    return undefined;
+  },
+} satisfies NonNullable<Storages["default"]["keys"]>;
+```
+
+Set `keys: workspaceKeys` on the storage declaring `sidebarCollapsed`.
+Then `silo.scope("workspaces:7").scope("users:2").value("sidebarCollapsed")`
+reads and writes `app.7.sidebar.collapsed.2`.
+
+Both functions must be synchronous, deterministic, and stable for the store's
+lifetime. Silo checks `decode(encode(address)) === address` before using a key
+and rejects empty physical keys. The mapping must also handle the migration
+address, such as `silo::version`; the example leaves it unchanged. Do not capture
+the current workspace ID in the mapping: it already arrives in the address.
+
+Adapters and external change reports use physical keys. Migration operations use
+logical, namespace-relative keys; enumeration decodes physical keys and omits
+unowned keys, aliases that do not round trip, and migration metadata.
+Scope release follows logical scope membership even when mapped keys share no
+physical prefix. The mapping applies to whichever adapter wins the storage's
+candidate list.
+
+For app-wide, workspace, user, and workspace-user values together, see the
+[complete legacy-key recipe](recipes.md#existing-workspace-and-user-keys).
 
 ## Which namespace applies
 

@@ -4,9 +4,9 @@ description: "Silo scopes: the same storages under a key prefix for per-user or 
 
 # Scopes
 
-A scope is the same storages under a key prefix. One declaration of `theme` can
-hold a different value per account, per document, or per workspace, with the
-same types and the same handles.
+Use a scope to keep separate values for each user, workspace, or document.
+Scopes reuse the store's schema and adapters while adding a logical path to each
+key. Each distinct address has its own cached value handle.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";
@@ -43,6 +43,39 @@ await account.release(); // flush and free this scope and its descendants
 store, because they are properties of the store, not of a prefix. The store
 itself is the root scope, and `SiloScope<TStorages>` is the handle's type.
 
+## Global, workspace, and user values together
+
+Keep global values on `silo` and acquire independent scopes for the two identities:
+
+```ts
+const workspace = silo
+  .scope("workspaces")
+  .scope(encodeURIComponent(workspaceId));
+const user = silo.scope("users").scope(encodeURIComponent(userId));
+const member = workspace.scope("users").scope(encodeURIComponent(userId));
+
+silo.value("theme"); // shared across the application
+workspace.value("theme"); // specific to this workspace
+user.value("theme"); // this user's preference across workspaces
+member.value("theme"); // this user's preference within this workspace
+```
+
+These are four independent values. A missing scoped value uses the schema's
+fallback; it does not look up the parent scope's value. Scope names do not
+restrict which schema keys are available.
+
+Framework bindings accept these handles directly. In React:
+
+```tsx
+const [globalTheme] = useValue(silo.value("theme"));
+const [workspaceTheme] = useValue(workspace.value("theme"));
+const [userTheme] = useValue(user.value("theme"));
+```
+
+Call these hooks in a component after both IDs are known. Changing an ID retargets
+the affected handle subscription. See the complete
+[workspace and user recipe](recipes.md#workspace-and-user-preferences).
+
 ## The key layout
 
 Keys compose with a single `:` separator, per storage:
@@ -60,6 +93,10 @@ The core composes that string and the adapter treats it as opaque: no adapter
 prefixes, trims or normalizes it. The storage name is not part of the key; a
 scope spans every storage, and each storage's own namespace applies to the keys
 that live there. See [Storages and namespaces](storages.md).
+
+A storage with a [key mapping](storages.md#existing-storage-keys) translates this
+logical address before passing it to the adapter. Scope membership and release
+still follow the logical hierarchy.
 
 | Part        | Written by           | Rules                                                    |
 | ----------- | -------------------- | -------------------------------------------------------- |
@@ -126,9 +163,8 @@ migrates away anything the current schema no longer declares.
 
 ## A segment may contain the separator
 
-`scope()` validates that a segment is non-empty and nothing else. In
-particular, `:` is allowed, which keeps `scope("users:42")` the natural spelling
-it is used as everywhere in these docs. For example:
+`scope()` accepts a non-empty path. Colons separate path segments, so these
+calls produce the same address:
 
 ```ts
 silo.scope("users:42").value("theme"); // silo:users:42:theme
@@ -194,6 +230,26 @@ notebook" is one `clear()` on it.
 
 ## In React
 
+One component can observe several scopes by passing value handles directly:
+
+```tsx
+const workspace = silo.scope(`workspaces:${workspaceId}`);
+const user = workspace.scope(`users:${userId}`);
+const [globalTheme] = useValue(silo.value("theme"));
+const [workspaceTheme] = useValue(workspace.value("theme"));
+const [userTheme] = useValue(user.value("theme"));
+```
+
+These handle calls infer their types without `Register` or a provider.
+`useValueStatus` also accepts a handle. Vue accepts a ref or getter for a
+changing handle; Solid and Svelte accept getters.
+
+Wait for required IDs before mounting a scoped consumer. An omitted or
+`undefined` provider scope selects the root; it does not suspend persistence.
+A missing handle is rejected rather than resolved through the provider. If a
+screen needs editable state before an ID exists, keep that state local until
+the scoped consumer can mount.
+
 Pass `scope="users:42"` to `SiloProvider` to scope the hooks below it.
 `useScope()` returns that scope for imperative operations. The application owns
 its release, for example after an account's views have unmounted:
@@ -203,3 +259,6 @@ await silo.scope(`users:${previousUserId}`).release();
 ```
 
 See [React](react.md) for the provider and hook APIs.
+
+The [workspace and user key recipe](recipes.md#existing-workspace-and-user-keys)
+shows concurrent workspaces, independent user preferences, and legacy physical keys.

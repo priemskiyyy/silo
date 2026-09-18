@@ -15,7 +15,7 @@ The runtime has these owners. Follow them in this order:
 | `WriteQueue`       | Orders persistence requests and settles durability barriers.                       |
 | `Migrations`       | Runs migration steps and admits value access after success.                        |
 | `MigrationStore`   | Raw, namespace-relative access to every storage during a migration.                |
-| `Keyspace`         | Composes and strips physical keys for one storage's namespace.                     |
+| `Keyspace`         | Composes logical addresses and translates physical keys for one storage.           |
 | `ValueCodec`       | Encodes, decodes and checks expiry envelopes for one definition.                   |
 | `Diagnostics`      | Lazy snapshots and events for inspectors, with no demand of its own.               |
 | `Lifetime`         | Ordered, idempotent cleanup that rolls back a failed setup.                        |
@@ -62,7 +62,11 @@ including when their cleanup throws. A
 candidate shared across storage lists stays alive if selected anywhere. Storage
 name dictionaries preserve own keys such as `__proto__`.
 
-Keys are physical addresses: `${namespace}:${...segments}:${key}`. The root
+Logical addresses are `${namespace}:${...segments}:${key}`. A storage may translate
+them through `keys.encode`, with `keys.decode` reversing that translation; the
+core validates the round trip before using a physical key. Migration metadata
+uses the same mapping. Scope membership uses record identity rather than a
+physical prefix. The root
 store and scope handles share the registry. Records live until explicit scope release or store disposal. There is no automatic
 eviction or reference counting; applications release scopes when their consumers
 finish using them. `release()` includes descendants, waits for all matching writes
