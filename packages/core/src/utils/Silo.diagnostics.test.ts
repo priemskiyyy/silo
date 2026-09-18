@@ -630,3 +630,178 @@ test.each(["sync", "async"])(
     silo.dispose();
   },
 );
+
+test.each([
+  { mode: "sync", event: "hydrate landed" },
+  { mode: "async", event: "hydrate landed" },
+  { mode: "sync", event: "write accepted" },
+  { mode: "async", event: "write accepted" },
+])(
+  "reacquiring during $event does not restart hydration ($mode)",
+  async ({ mode, event }) => {
+    const mock =
+      mode === "async" ? createMockAdapter({ mode }) : createMockAdapter();
+    mock.store.set(
+      "silo:theme",
+      event === "write accepted"
+        ? { value: "expired", expires: { at: 500 } }
+        : "stored",
+    );
+    const silo = new Silo({
+      storages: {
+        default: {
+          adapters: [mock.adapter],
+          schema: {
+            theme: value({ fallback: "light", expires: { in: 1_000 } }),
+          },
+        },
+      },
+      now: () => 1_000,
+    });
+    const inspected = vi.fn();
+    const stop = silo.diagnostics.events.subscribe((observed) => {
+      if (observed.type !== event) {
+        return;
+      }
+      stop();
+      inspected(silo.value("theme"));
+    });
+
+    const theme = silo.value("theme");
+    await theme.hydrated();
+    await theme.flush();
+
+    expect(inspected).toHaveBeenCalledExactlyOnceWith(theme);
+    expect(mock.calls.filter((call) => call.operation === "get")).toHaveLength(
+      1,
+    );
+    expect(theme.get()).toBe(event === "write accepted" ? "light" : "stored");
+    expect(theme.status.get()).toEqual({ state: "ready" });
+    silo.dispose();
+  },
+);
+
+test("reacquiring during an external update preserves the pending hydration read", async () => {
+  const mock = createMockAdapter({ mode: "async", hold: true });
+  mock.store.set("silo:theme", "older");
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+  });
+  const theme = silo.value("theme");
+  const inspected = vi.fn();
+  const stop = silo.diagnostics.events.subscribe((event) => {
+    if (event.type !== "outside applied") {
+      return;
+    }
+    stop();
+    inspected(silo.value("theme"));
+  });
+
+  mock.emit({ key: "silo:theme", value: "newer" });
+  mock.calls[0]?.settle();
+  await theme.hydrated();
+
+  expect(inspected).toHaveBeenCalledExactlyOnceWith(theme);
+  expect(mock.calls).toHaveLength(1);
+  expect(theme.get()).toBe("newer");
+  silo.dispose();
+});
+
+test("a reload from a hydration event supersedes the result being announced", async () => {
+  const mock = createMockAdapter({ mode: "async", hold: true });
+  mock.store.set("silo:theme", "older");
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+  });
+  const theme = silo.value("theme");
+  const stop = silo.diagnostics.events.subscribe((event) => {
+    if (event.type !== "hydrate landed") {
+      return;
+    }
+    stop();
+    mock.store.set("silo:theme", "newer");
+    mock.emit({ key: null });
+  });
+
+  mock.calls[0]?.settle();
+  await macrotask();
+
+  expect(theme.get()).toBe("light");
+  expect(theme.status.get()).toEqual({ state: "hydrating" });
+  expect(mock.calls).toHaveLength(2);
+  mock.calls[1]?.settle();
+  await theme.hydrated();
+
+  expect(theme.get()).toBe("newer");
+  expect(theme.status.get()).toEqual({ state: "ready" });
+  silo.dispose();
+});
+
+test.each(["silo:theme", null])(
+  "a reload from an external event supersedes the incoming value (key: %s)",
+  async (key) => {
+    const mock = createMockAdapter({ mode: "async", hold: true });
+    mock.store.set("silo:theme", "initial");
+    const silo = new Silo({
+      storages: { default: { adapters: [mock.adapter], schema } },
+    });
+    const theme = silo.value("theme");
+    mock.calls[0]?.settle();
+    await theme.hydrated();
+    const stop = silo.diagnostics.events.subscribe((event) => {
+      if (event.type !== "outside applied") {
+        return;
+      }
+      stop();
+      mock.store.set("silo:theme", "newest");
+      mock.emit({ key: null });
+    });
+
+    mock.store.set("silo:theme", "older");
+    mock.emit(key === null ? { key } : { key, value: "older" });
+    if (key === null) {
+      mock.calls[1]?.settle();
+    }
+    await macrotask();
+
+    expect(theme.get()).toBe("initial");
+    expect(mock.calls).toHaveLength(key === null ? 3 : 2);
+    expect(mock.calls.at(-1)?.pending).toBe(true);
+    mock.calls.at(-1)?.settle();
+    await macrotask();
+
+    expect(theme.get()).toBe("newest");
+    expect(theme.status.get()).toEqual({ state: "ready" });
+    silo.dispose();
+  },
+);
+
+test.each(["hydrate landed", "outside applied"])(
+  "a write from a %s listener supersedes the incoming value",
+  async (type) => {
+    const mock = createMockAdapter({ mode: "async", hold: true });
+    mock.store.set("silo:theme", "stored");
+    const silo = new Silo({
+      storages: { default: { adapters: [mock.adapter], schema } },
+    });
+    const theme = silo.value("theme");
+    silo.diagnostics.events.subscribe((event) => {
+      if (event.type !== type) {
+        return;
+      }
+      theme.set("newer");
+    });
+
+    mock.calls[0]?.settle();
+    await theme.hydrated();
+    if (type === "outside applied") {
+      mock.emit({ key: "silo:theme", value: "outside" });
+    }
+    mock.calls.find((call) => call.operation === "set")?.settle();
+    await theme.flush();
+
+    expect(theme.get()).toBe("newer");
+    expect(mock.store.get("silo:theme")).toBe("newer");
+    silo.dispose();
+  },
+);

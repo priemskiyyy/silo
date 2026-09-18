@@ -265,7 +265,6 @@ export class ValueRecord {
     }
 
     const revision = ++this.#revision;
-    this.#read = null;
     let snapshot: Snapshot = { value, status: READY_VALUE_STATUS };
     let submitting = true;
     // Inline failures belong to this commit; later failures publish a new one.
@@ -353,17 +352,20 @@ export class ValueRecord {
       return;
     }
 
-    this.#read = null;
     if (read.source === "HYDRATION") {
       this.#trace("hydrate landed", () => ({
         outcome: inbound.kind,
         ...(inbound.kind === "invalid" ? { cause: inbound.error } : {}),
       }));
-      this.#apply(inbound);
+      if (!this.#currentRead(read)) {
+        return;
+      }
+      this.#apply(read.revision, inbound);
       return;
     }
 
     if (read.source === "EXTERNAL") {
+      this.#read = null;
       this.#handleExternal(inbound);
       return;
     }
@@ -377,15 +379,19 @@ export class ValueRecord {
       return;
     }
 
-    this.#read = null;
+    const revision = this.#revision;
+    const read = this.#read;
     this.#writes.acknowledge();
     this.#trace("outside applied", () => ({ outcome: inbound.kind }));
-    this.#apply(inbound);
+    if (this.#read !== read) {
+      return;
+    }
+    this.#apply(revision, inbound);
   }
 
-  #apply(inbound: ReturnType<ValueCodec["decode"]>) {
+  #apply(revision: number, inbound: ReturnType<ValueCodec["decode"]>) {
     const resources = this.#resources;
-    if (resources === undefined) {
+    if (resources === undefined || !this.#current(revision)) {
       return;
     }
 
@@ -394,9 +400,9 @@ export class ValueRecord {
       return;
     }
 
-    const revision = ++this.#revision;
+    const committed = ++this.#revision;
     if (inbound.kind === "invalid") {
-      this.#publish(revision, {
+      this.#publish(committed, {
         value: resources.definition.fallback,
         status: {
           state: "error",
@@ -407,7 +413,7 @@ export class ValueRecord {
     }
 
     if (inbound.kind === "absent") {
-      this.#publish(revision, {
+      this.#publish(committed, {
         value: resources.definition.fallback,
         status: READY_VALUE_STATUS,
       });
@@ -415,7 +421,7 @@ export class ValueRecord {
     }
 
     if (inbound.kind === "value") {
-      this.#publish(revision, {
+      this.#publish(committed, {
         value: inbound.value,
         status: READY_VALUE_STATUS,
       });
@@ -430,7 +436,10 @@ export class ValueRecord {
       return;
     }
 
+    // Keep the read reserved through diagnostic callbacks until the snapshot commits.
+    this.#read = null;
     this.#hydration?.resolve();
+    this.#hydration = undefined;
     this.#changed();
     this.#state.set(snapshot);
   }
