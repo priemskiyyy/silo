@@ -635,6 +635,12 @@ export const checkSolid = () => {
 
 declare module "@priemskiyyy/silo-svelte" { interface Register { silo: typeof silo; } }
 export const checkSvelte = () => {
+  const timestamp = Svelte.useValue(() => independentHandle);
+  expectType<Equal<typeof timestamp.current, Date>>(true);
+  timestamp.current = new Date();
+  Svelte.useValueStatus(independentHandle);
+  // @ts-expect-error explicit handles retain their own value type
+  timestamp.current = "invalid";
   expectType<Equal<Svelte.RegisteredKey, "theme" | "user" | "count" | "callback">>(true);
   const theme = Svelte.useValue("theme");
   const count = Svelte.useValue("count");

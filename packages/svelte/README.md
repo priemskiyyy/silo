@@ -15,3 +15,16 @@ Svelte bindings for [Silo](https://priemskiyyy.github.io/silo/).
 - **Server rendering:** reads the current snapshot (the fallback on cold browser storage), without attaching value subscriptions. Use one Silo per request. Synchronous browser storage may differ from server markup; render storage-dependent UI after mount when necessary.
 
 See the [binding guide](https://priemskiyyy.github.io/silo/svelte) for setup and examples.
+
+## Explicit handles
+
+`useValue(handle)` and `useValueStatus(handle)` accept scoped values directly,
+without a provider or `Register`. Pass a getter when the handle depends on a
+changing workspace or user ID. Wait for required IDs before mounting the consumer;
+an undefined provider scope selects root storage.
+
+See the [binding guide](https://priemskiyyy.github.io/silo/svelte#explicit-value-handles).
+
+## License
+
+[MIT](LICENSE)

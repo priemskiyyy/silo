@@ -8,6 +8,7 @@ import CounterHarness from "./CounterHarness.fixture.svelte";
 import StatusHarness from "./StatusHarness.fixture.svelte";
 import IdentityHarness from "./IdentityHarness.fixture.svelte";
 import View from "./Value.fixture.svelte";
+import HandleView from "./Handle.fixture.svelte";
 
 const disposals: Array<() => void> = [];
 afterEach(async () => {
@@ -35,6 +36,37 @@ const createHarness = () => {
   disposals.push(silo.dispose);
   return { mock, silo };
 };
+
+test("explicit handles need no provider and getters retarget subscriptions and writes", async () => {
+  const { silo } = createHarness();
+  const first = silo.scope("workspaces:7").value("count");
+  const second = silo.scope("workspaces:7:users:2").value("count");
+  second.set(5);
+  const changed = vi.fn();
+  const view = render(HandleView, {
+    root: silo.value("count"),
+    handle: first,
+    onChange: changed,
+  });
+  flushSync();
+  expect(screen.getByRole("button").textContent?.trim()).toBe("0/0/ready");
+  await fireEvent.click(screen.getByRole("button"));
+  expect(first.get()).toBe(1);
+  await view.rerender({ handle: second });
+  changed.mockClear();
+  first.set(9);
+  await tick();
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.getByRole("button").textContent?.trim()).toBe("1/5/ready");
+  await fireEvent.click(screen.getByRole("button"));
+  expect(second.get()).toBe(6);
+  expect(screen.getByRole("button").textContent?.trim()).toBe("2/6/ready");
+  view.unmount();
+  await tick();
+  changed.mockClear();
+  second.set(7);
+  expect(changed).not.toHaveBeenCalled();
+});
 
 test("persisted snapshots, writes, and external reports reach every consumer", async () => {
   const { silo, mock } = createHarness();
