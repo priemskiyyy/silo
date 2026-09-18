@@ -528,7 +528,7 @@ export const App = () => <SiloProvider {...props} />;
   write(
     "bindings-contracts.ts",
     `import { Silo, value } from "@priemskiyyy/silo";
-import type { SiloScope, SiloStatus, ValueStatus } from "@priemskiyyy/silo";
+import type { SiloScope, SiloValue, SiloStatus, ValueStatus } from "@priemskiyyy/silo";
 import { memory } from "@priemskiyyy/silo-memory";
 import * as Vue from "@priemskiyyy/silo-vue";
 import * as Solid from "@priemskiyyy/silo-solid";
@@ -542,7 +542,14 @@ const storages = { default: { adapters: [memory()], schema: { theme: value<Theme
 const silo = new Silo({ storages });
 
 declare module "@priemskiyyy/silo-vue" { interface Register { silo: typeof silo; } }
+declare const independentHandle: SiloValue<Date>;
 export const checkVue = () => {
+  const timestamp = Vue.useValue(() => independentHandle);
+  expectType<Equal<typeof timestamp.value, Date>>(true);
+  timestamp.value = new Date();
+  Vue.useValueStatus(independentHandle);
+  // @ts-expect-error explicit handles retain their own value type
+  timestamp.value = "invalid";
   expectType<Equal<Vue.RegisteredKey, "theme" | "user" | "count" | "callback">>(true);
   const theme = Vue.useValue("theme");
   const count = Vue.useValue("count");

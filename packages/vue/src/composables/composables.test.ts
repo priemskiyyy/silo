@@ -37,6 +37,51 @@ const createHarness = () => {
   disposals.push(silo.dispose);
   return { mock, silo };
 };
+
+test("explicit handles need no provider and reactive replacements move subscriptions and writes", async () => {
+  const { silo } = createHarness();
+  const first = silo.scope("workspaces:7").value("count");
+  const second = silo.scope("workspaces:7:users:2").value("count");
+  second.set(5);
+  const handle = shallowRef(first);
+  const changed = vi.fn();
+  const view = mount(
+    defineComponent(() => {
+      const count = useValue(handle, changed);
+      const root = useValue(silo.value("count"));
+      const status = useValueStatus(() => handle.value);
+      return () =>
+        h(
+          "button",
+          {
+            onClick: () => {
+              count.value += 1;
+              root.value += 1;
+            },
+          },
+          `${root.value}/${count.value}/${status.value.state}`,
+        );
+    }),
+  );
+  disposals.push(() => view.unmount());
+  expect(view.text()).toBe("0/0/ready");
+  await view.trigger("click");
+  expect(first.get()).toBe(1);
+  handle.value = second;
+  await nextTick();
+  changed.mockClear();
+  first.set(9);
+  await nextTick();
+  expect(changed).not.toHaveBeenCalled();
+  expect(view.text()).toBe("1/5/ready");
+  await view.trigger("click");
+  expect(second.get()).toBe(6);
+  expect(view.text()).toBe("2/6/ready");
+  view.unmount();
+  changed.mockClear();
+  second.set(7);
+  expect(changed).not.toHaveBeenCalled();
+});
 const View = defineComponent(
   (props: { name?: string; onChange?: (value: unknown) => void }) => {
     const snapshot = useValue(
