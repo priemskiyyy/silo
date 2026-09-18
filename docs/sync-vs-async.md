@@ -4,10 +4,9 @@ description: "Why a synchronous Silo storage reads persisted data in the first f
 
 # Synchronous and asynchronous
 
-`localStorage` answers in the calling frame. IndexedDB answers in a later
-task. No library can change that. What Silo does is put the difference in
-exactly one place: **when the persisted value reaches the snapshot**.
-Everything you call is the same on both.
+The value API is the same for synchronous and asynchronous storage. The
+difference is when stored data becomes available: localStorage can load during
+`silo.value(key)`, while IndexedDB initially exposes the fallback.
 
 ## The two timelines
 
@@ -168,11 +167,11 @@ is what keeps snapshot identity stable for `useSyncExternalStore`.
 
 With successful reads and no pending migration, the main timing differences are:
 
-| Question                                | Synchronous storage                       | Asynchronous storage            |
-| --------------------------------------- | ----------------------------------------- | ------------------------------- |
-| First `get()` after `value(key)`        | The persisted value                       | The fallback                    |
-| Is `{ state: "hydrating" }` observable? | Only while migration admission is pending | Yes, until the first read lands |
-| First paint in React                    | Correct immediately                       | Fallback, then a rerender       |
+| Question                                | Synchronous storage                       | Asynchronous storage                |
+| --------------------------------------- | ----------------------------------------- | ----------------------------------- |
+| First `get()` after `value(key)`        | The persisted value                       | The fallback                        |
+| Is `{ state: "hydrating" }` observable? | Only while migration admission is pending | Yes, until the first read completes |
+| First paint in React                    | Correct immediately                       | Fallback, then a rerender           |
 
 ## Choosing
 

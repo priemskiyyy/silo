@@ -4,9 +4,8 @@ description: "Silo fallbacks are read-time substitutes never persisted: how they
 
 # Fallbacks and removal
 
-A fallback is what a key reads as when nothing is stored. It is called
-`fallback` rather than `default` because it is **never written**: it
-substitutes at read time and leaves the backend empty.
+A fallback is the value returned when a key has no stored value. Reading it does
+not write anything to storage.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";
@@ -31,13 +30,8 @@ theme.get(); // "light"
 silo.native.default.size; // 0: the fallback was read, nothing was written
 ```
 
-That is what makes a fallback changeable. Ship `fallback: "dark"` in the next
-release and every user who never chose a theme gets the new one, because
-their storage was never seeded with the old one. A default that had been
-persisted would be frozen into every installation forever.
-
-If a value must exist on disk, write it: `theme.set("light")`. A fallback is
-not a seed.
+Changing the fallback in a later release affects users who have not stored
+their own value. To persist an initial value, call `theme.set("light")`.
 
 ## The type follows the fallback
 
@@ -106,7 +100,7 @@ token.get(); // undefined
 ```
 
 Like `set()`, `remove()` never throws on a failed deletion. It takes a
-revision, so `flush()` covers it and a failure lands on `status` with
+revision, so `flush()` covers it and a failure appears on `status` with
 `error.phase: "write"`.
 
 ## clear

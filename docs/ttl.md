@@ -51,10 +51,9 @@ silo.native.default.get("silo:token"); // { value: "abc", expires: { at: 1758067
 silo.native.default.get("silo:theme"); // "dark", bare, with no wrapper at all
 ```
 
-Everything else persists **bare**, with no wrapper of any kind. That is frozen
-behavior, not an implementation detail: the value another tool reads out of
-`localStorage` is the value you set, and nothing pays for a feature it does not
-use.
+Values without expiry are stored directly, without an envelope. A text adapter
+then serializes that value in its configured format. Other tools reading storage
+need to account for the envelope only on expiring keys.
 
 The envelope wraps the **encoded** value, so a [codec](schema-and-codecs.md)
 never sees it. `encode` produces the payload, the store wraps it, and on the way

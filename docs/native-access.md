@@ -4,9 +4,9 @@ description: "Reach the backend under a Silo storage with silo.native: what each
 
 # Native access
 
-Silo normalizes the lifecycle of stored values, not the capabilities of the
-backend underneath. Everything the backend can do that Silo does not model
-stays reachable through `silo.native`, keyed by storage name.
+`silo.native` exposes each selected adapter's underlying client or handle. Use
+it for backend operations that Silo does not expose, such as inspecting a
+database connection.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";
@@ -90,7 +90,7 @@ when a check by type is not enough. See [devtools](devtools.md).
 | `sqlite()`, `redis()`, `mmkv()`, `asyncStorage()`, ... | The instance or module the factory was handed      | never                                      |
 | `simulcast({ adapter })`                               | The wrapped adapter's own                          | as the wrapped adapter                     |
 
-A `null` native is the honest answer for a platform that is not there, and it
+A `null` native indicates that the platform API is absent, and it
 is what the browser adapters report on a server. It is not an error state
 and nothing throws for it.
 
@@ -101,7 +101,7 @@ requires it to be identity stable for the adapter's life. The conformance
 suite asserts it. Two consequences:
 
 - The core reads it once, when the store is constructed, and
-  `silo.native.<storage>` hands back that same value forever.
+  `silo.native.<storage>` returns that same value forever.
 - It is safe in a dependency array and safe to hold.
 
 For the browser adapters this is what resolves the platform: the adapter
@@ -110,7 +110,7 @@ test that installs a `localStorage` after the store already exists sees
 `silo.native.default` stay `null`, because the answer was settled at
 construction. Build the store after the environment.
 
-## Why IndexedDB hands back a handle
+## Why IndexedDB returns a handle
 
 `silo.native.journal` for `indexedDb()` is not the `IDBDatabase`. It is:
 
