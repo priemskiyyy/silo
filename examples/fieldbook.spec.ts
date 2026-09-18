@@ -164,6 +164,58 @@ for (const width of WIDTHS) {
     expect(errors).toEqual([]);
   });
 
+  test(`an invalid stored theme uses the fallback until repaired at ${width}px`, async ({
+    page,
+  }) => {
+    const errors = await open(page, width);
+    await page.evaluate(() => {
+      localStorage.setItem("fieldbook:theme", JSON.stringify("sepia"));
+    });
+    await page.reload();
+
+    const preferences = panel(page, "Preferences");
+    await expect(preferences.getByText("Could not load theme")).toBeVisible();
+    await expect(
+      page
+        .getByRole("group", { name: "Theme", exact: true })
+        .getByRole("button", { name: "System", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      await page.evaluate(() => localStorage.getItem("fieldbook:theme")),
+    ).toBe(JSON.stringify("sepia"));
+
+    await preferences
+      .getByRole("button", { name: "Fix theme", exact: true })
+      .click();
+    await expect(preferences.getByText("Could not load theme")).toBeHidden();
+    expect(
+      await page.evaluate(() => localStorage.getItem("fieldbook:theme")),
+    ).toBe(JSON.stringify("system"));
+    expect(errors).toEqual([]);
+  });
+
+  test(`URL counts validate text and persist numeric updates at ${width}px`, async ({
+    page,
+  }) => {
+    const errors = await open(page, width);
+    await page.goto("/?count=invalid");
+    await pick(page, "URL");
+
+    const playground = panel(page, "Playground");
+    const count = playground.getByRole("group", { name: "Count", exact: true });
+    await expect(count.getByText("0", { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/count=invalid/);
+
+    await count
+      .getByRole("button", { name: "Count one more", exact: true })
+      .click();
+    await expect(page).toHaveURL(/count=1/);
+    await page.reload();
+    await pick(page, "URL");
+    await expect(count.getByText("1", { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
   test(`private mode falls through to the memory floor at ${width}px`, async ({
     page,
   }) => {

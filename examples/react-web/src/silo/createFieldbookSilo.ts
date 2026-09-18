@@ -8,30 +8,30 @@ import { searchParams } from "@priemskiyyy/silo-search-params";
 import { sessionStorage as sessionStorageAdapter } from "@priemskiyyy/silo-session-storage";
 import { simulcast } from "@priemskiyyy/silo-simulcast";
 import { z } from "zod";
-import type { Entry } from "src/silo/Entry";
+import { EntrySchema } from "src/silo/Entry";
 import type { Faults } from "src/silo/adapters/createFaults";
 import { createFaults } from "src/silo/adapters/createFaults";
 import { delayed } from "src/silo/adapters/delayed";
 import { flaky } from "src/silo/adapters/flaky";
-import { integerCodec } from "src/silo/integerCodec";
 import { plainTextFormat } from "src/silo/plainTextFormat";
 import { realtime } from "src/silo/realtime";
 import { server } from "src/silo/server/server";
 import type { LabFlags } from "src/state/applicationReducer";
 
-export type Theme = "light" | "dark" | "system";
-export type Density = "comfortable" | "compact";
-export type Units = "metric" | "imperial";
+const ThemeSchema = z.enum(["light", "dark", "system"]);
+const DensitySchema = z.enum(["comfortable", "compact"]);
+const UnitsSchema = z.enum(["metric", "imperial"]);
+const FilterSchema = z.enum(["all", "today", "starred"]);
+const SortSchema = z.enum(["newest", "oldest"]);
+const UrlCountSchema = z.coerce.number().int();
 
-// Zod is a Standard Schema, so a hand-edited URL is validated on the way in:
-// a value outside the enum reads as the fallback with a hydrate error.
-const filterSchema = z.enum(["all", "today", "starred"]);
-const sortSchema = z.enum(["newest", "oldest"]);
-
-export type Filter = z.infer<typeof filterSchema>;
-export type Sort = z.infer<typeof sortSchema>;
-export const FILTERS = filterSchema.options;
-export const SORTS = sortSchema.options;
+export type Theme = z.infer<typeof ThemeSchema>;
+export type Density = z.infer<typeof DensitySchema>;
+export type Units = z.infer<typeof UnitsSchema>;
+export type Filter = z.infer<typeof FilterSchema>;
+export type Sort = z.infer<typeof SortSchema>;
+export const FILTERS = FilterSchema.options;
+export const SORTS = SortSchema.options;
 
 /** Milliseconds the slow journal adds to every operation. */
 export const SLOW_JOURNAL_LATENCY = 900;
@@ -45,8 +45,8 @@ export const FIELDBOOK_VERSION = 2;
 // The same two keys in every storage, eight distinct values: the Playground
 // switches between them to show where a value should live.
 const playground = () => ({
-  note: value({ fallback: "" }),
-  count: value({ fallback: 0 }),
+  note: value({ schema: z.string(), fallback: "" }),
+  count: value({ schema: z.number().int(), fallback: 0 }),
 });
 
 // Eight storages, each chosen for what it is good at, every list ending in
@@ -59,10 +59,13 @@ const createStorages = (flags: LabFlags, faults: Faults) => ({
     ],
     schema: {
       ...playground(),
-      theme: value<Theme>({ fallback: "system" }),
-      density: value<Density>({ fallback: "comfortable" }),
-      visits: value({ fallback: 0 }),
-      quietUntil: value<number>({ expires: { in: QUIET_HOURS_LENGTH } }),
+      theme: value({ schema: ThemeSchema, fallback: "system" }),
+      density: value({ schema: DensitySchema, fallback: "comfortable" }),
+      visits: value({ schema: z.number().int(), fallback: 0 }),
+      quietUntil: value({
+        schema: z.number(),
+        expires: { in: QUIET_HOURS_LENGTH },
+      }),
     },
   },
   memory: {
@@ -73,8 +76,8 @@ const createStorages = (flags: LabFlags, faults: Faults) => ({
     adapters: [sessionStorageAdapter(), memory()],
     schema: {
       ...playground(),
-      composer: value({ fallback: "" }),
-      selectedEntry: value<string>(),
+      composer: value({ schema: z.string(), fallback: "" }),
+      selectedEntry: value({ schema: z.string() }),
     },
   },
   journal: {
@@ -90,19 +93,20 @@ const createStorages = (flags: LabFlags, faults: Faults) => ({
     ],
     schema: {
       ...playground(),
-      entries: value<Entry[]>({ fallback: [] }),
-      supplies: value<Map<string, number>>({ fallback: new Map() }),
+      entries: value({ schema: z.array(EntrySchema), fallback: [] }),
+      supplies: value({
+        schema: z.map(z.string(), z.number()),
+        fallback: new Map(),
+      }),
     },
   },
   url: {
-    // Plain text in the address bar, so the link reads `?note=hello`; the
-    // count carries its own codec because every value comes back as text.
     adapters: [searchParams({ format: plainTextFormat }), memory()],
     schema: {
-      note: value({ fallback: "" }),
-      count: value({ codec: integerCodec, fallback: 0 }),
-      filter: value<Filter>({ schema: filterSchema, fallback: "all" }),
-      sort: value<Sort>({ schema: sortSchema, fallback: "newest" }),
+      note: value({ schema: z.string(), fallback: "" }),
+      count: value({ schema: UrlCountSchema, fallback: 0 }),
+      filter: value({ schema: FilterSchema, fallback: "all" }),
+      sort: value({ schema: SortSchema, fallback: "newest" }),
       query: value({ schema: z.string(), fallback: "" }),
     },
   },
@@ -119,15 +123,15 @@ const createStorages = (flags: LabFlags, faults: Faults) => ({
       memory(),
     ],
     schema: {
-      note: value({ fallback: "" }),
-      count: value({ codec: integerCodec, fallback: 0 }),
+      note: value({ schema: z.string(), fallback: "" }),
+      count: value({ schema: UrlCountSchema, fallback: 0 }),
     },
   },
   preferences: {
     adapters: [cookie({ maxAge: COOKIE_LIFETIME }), memory()],
     schema: {
       ...playground(),
-      units: value<Units>({ fallback: "metric" }),
+      units: value({ schema: UnitsSchema, fallback: "metric" }),
     },
   },
   remote: {

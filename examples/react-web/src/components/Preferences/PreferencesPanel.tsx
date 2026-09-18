@@ -21,15 +21,15 @@ const THEME_OPTIONS = [
   { value: "system", label: "System" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
-] as const satisfies ReadonlyArray<{ value: Theme; label: string }>;
+] satisfies { value: Theme; label: string }[];
 const DENSITY_OPTIONS = [
   { value: "comfortable", label: "Comfortable" },
   { value: "compact", label: "Compact" },
-] as const satisfies ReadonlyArray<{ value: Density; label: string }>;
+] satisfies { value: Density; label: string }[];
 const UNITS_OPTIONS = [
   { value: "metric", label: "Metric" },
   { value: "imperial", label: "Imperial" },
-] as const satisfies ReadonlyArray<{ value: Units; label: string }>;
+] satisfies { value: Units; label: string }[];
 
 type FieldProps = {
   label: string;
@@ -66,7 +66,7 @@ export const PreferencesPanel: React.FunctionComponent<
     <Panel
       title="Preferences"
       icon={SlidersHorizontal}
-      shows="The look in localStorage, the units in a cookie, and a key that expires on its own."
+      shows="These preferences apply across all your notebooks."
       livesIn={livesIn}
       aside={
         <Badge tone="neutral">
@@ -84,7 +84,11 @@ export const PreferencesPanel: React.FunctionComponent<
           />
           {themeStatus.state === "error" ? (
             <>
-              <Badge tone="danger">Raw is not JSON: fallback shown</Badge>
+              <Badge tone="danger">
+                {themeStatus.error.phase === "write"
+                  ? "Could not save theme"
+                  : "Could not load theme"}
+              </Badge>
               <button
                 type="button"
                 onClick={() => setTheme("system")}

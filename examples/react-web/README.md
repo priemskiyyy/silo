@@ -73,5 +73,7 @@ overrides it, and migrations translate per storage, so
 
 The URL storage also takes `format: plainTextFormat`, which writes strings as
 they are instead of as JSON, so the link reads the way a person typed it; every
-value then comes back as text, and a key that is not a string carries its own
-codec, as `count` does with `integerCodec`.
+value then comes back as text. `UrlCountSchema` uses
+`z.coerce.number().int()` to convert that text to a number. Preferences and
+journal entries also infer their types from Zod schemas, including the entry's
+`Date` and `Set` fields preserved by IndexedDB.
