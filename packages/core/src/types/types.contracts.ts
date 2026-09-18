@@ -39,12 +39,48 @@ const dateCodec = {
   decode: (raw: unknown) => new Date(String(raw)),
 } satisfies Codec<Date>;
 
-declare const userSchema: StandardSchema<User>;
+declare const UserSchema: StandardSchema<User>;
+declare const ThemeSchema: StandardSchema<Theme>;
+declare const themeCodec: Codec<Theme>;
+
+const validatedTheme = value({ schema: ThemeSchema, fallback: "light" });
+export const translatedTheme = value({ codec: themeCodec, fallback: "light" });
+export const validatedUser = value({
+  schema: UserSchema,
+  fallback: { name: "Ada" },
+});
+export const fallbackText = value({ fallback: "light" });
+
+export type SchemaFallbackInference = Expect<
+  Equal<InferValue<typeof validatedTheme>, Theme>
+>;
+export type CodecFallbackInference = Expect<
+  Equal<InferValue<typeof translatedTheme>, Theme>
+>;
+export type ObjectFallbackInference = Expect<
+  Equal<InferValue<typeof validatedUser>, User>
+>;
+export type PlainFallbackInference = Expect<
+  Equal<InferValue<typeof fallbackText>, string>
+>;
+
+// @ts-expect-error a fallback must not widen the schema's output
+value({ schema: ThemeSchema, fallback: "system" });
+// @ts-expect-error a fallback must not widen the codec's output
+value({ codec: themeCodec, fallback: "system" });
+// @ts-expect-error object fallbacks must match the schema
+value({ schema: UserSchema, fallback: { name: 42 } });
+// @ts-expect-error writes keep the schema's enum type
+validatedTheme.encode("system");
+
+const invalidThemeOptions = { schema: ThemeSchema, fallback: "system" };
+// @ts-expect-error an options variable must also respect the schema's output
+value(invalidThemeOptions);
 
 // A definition translates with a codec or validates with a schema, never
 // both: the exclusivity is the type's, so there is nothing to check at runtime.
 // @ts-expect-error codec and schema are exclusive
-value({ codec: dateCodec, schema: userSchema });
+value({ codec: dateCodec, schema: UserSchema });
 
 export const relativeExpiry = value<string>({ expires: { in: 1_000 } });
 export const absoluteExpiry = value({
@@ -70,20 +106,20 @@ value({ expires: { at: new Date() } });
 // @ts-expect-error the flat expiry option was replaced
 value({ expiresIn: 1_000 });
 
-export const schema = {
+export const Schema = {
   theme: value<Theme>({ fallback: "light" }),
   user: value<User>(),
   visits: value({ fallback: 0 }),
   seenAt: value({ codec: dateCodec }),
   openedAt: value({ codec: dateCodec, fallback: new Date(0) }),
-  validated: value({ schema: userSchema }),
+  validated: value({ schema: UserSchema }),
 } satisfies SiloSchema;
 
 // A declared fallback carries into the value type; explicit widening keeps the
 // declared union instead of collapsing to the fallback's literal.
-export type T1 = Expect<Equal<InferValue<typeof schema.theme>, Theme>>;
+export type T1 = Expect<Equal<InferValue<typeof Schema.theme>, Theme>>;
 export type T2 = Expect<
-  Equal<InferValue<typeof schema.user>, User | undefined>
+  Equal<InferValue<typeof Schema.user>, User | undefined>
 >;
 // A definition widened to the default parameter is not known to be defined.
 export type T3 = Expect<
@@ -97,18 +133,18 @@ export type T3b = Expect<
   >
 >;
 // Zero type arguments at both call sites: from the fallback, and from the codec.
-export type T4 = Expect<Equal<InferValue<typeof schema.visits>, number>>;
+export type T4 = Expect<Equal<InferValue<typeof Schema.visits>, number>>;
 export type T5 = Expect<
-  Equal<InferValue<typeof schema.seenAt>, Date | undefined>
+  Equal<InferValue<typeof Schema.seenAt>, Date | undefined>
 >;
-export type T6 = Expect<Equal<InferValue<typeof schema.openedAt>, Date>>;
+export type T6 = Expect<Equal<InferValue<typeof Schema.openedAt>, Date>>;
 // The value type comes from the validator's output, with nothing declared.
 export type T6b = Expect<
-  Equal<InferValue<typeof schema.validated>, User | undefined>
+  Equal<InferValue<typeof Schema.validated>, User | undefined>
 >;
 export type T7 = Expect<
   Equal<
-    InferSchema<{ default: { adapters: []; schema: typeof schema } }>,
+    InferSchema<{ default: { adapters: []; schema: typeof Schema } }>,
     {
       theme: Theme;
       user: User | undefined;
@@ -135,7 +171,7 @@ declare const syncMigration: SyncMigration;
 export const storages = {
   default: {
     adapters: [createMockAdapter().adapter, createMockAdapter().adapter],
-    schema,
+    schema: Schema,
   },
   secure: {
     adapters: [createMockAdapter({ mode: "async" }).adapter],
@@ -181,13 +217,17 @@ new Silo({
   migrations: { 1: syncMigration },
 });
 new Silo({
-  storages: { default: { adapters: [createMockAdapter().adapter], schema } },
+  storages: {
+    default: { adapters: [createMockAdapter().adapter], schema: Schema },
+  },
   // @ts-expect-error a synchronous store only takes synchronous migrations
   migrations: { 1: asyncMigration },
 });
 new Silo({
   // @ts-expect-error every store declares a default storage
-  storages: { secure: { adapters: [createMockAdapter().adapter], schema } },
+  storages: {
+    secure: { adapters: [createMockAdapter().adapter], schema: Schema },
+  },
 });
 
 export type T9 = Expect<

@@ -18,19 +18,28 @@ type ValueOptions<TValue> = {
  *
  * @example
  * ```ts
- * const schema = {
- *   theme: value<Theme>({ fallback: "light" }),
- *   user: value({ schema: userSchema, expires: { in: 3_600_000 } }),
+ * const Schema = {
+ *   theme: value({ schema: ThemeSchema, fallback: "light" }),
+ *   user: value({ schema: UserSchema, expires: { in: 3_600_000 } }),
  *   seenAt: value({ codec: dateCodec }),
  * } satisfies SiloSchema;
  * ```
  */
-// Overloads infer whether the read type includes undefined from fallback presence.
+// With a schema or codec, the fallback checks its type instead of widening it.
 export function value<TValue>(
-  options: ValueOptions<TValue> & { fallback: TValue },
+  options: { expires?: Expiration; fallback: NoInfer<TValue> } & (
+    | { schema: StandardSchema<TValue>; codec?: never }
+    | { codec: Codec<TValue>; schema?: never }
+  ),
 ): ValueDefinition<TValue, TValue>;
+export function value<TValue>(options: {
+  fallback: TValue;
+  expires?: Expiration;
+  codec?: never;
+  schema?: never;
+}): ValueDefinition<TValue, TValue>;
 export function value<TValue>(
-  options?: ValueOptions<TValue>,
+  options?: ValueOptions<TValue> & { fallback?: never },
 ): ValueDefinition<TValue, undefined>;
 export function value(
   options: ValueOptions<unknown> & { fallback?: unknown } = {},
