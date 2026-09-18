@@ -53,5 +53,11 @@ they are, and the tests beside the file you touch.
   `h1`, relative `page.md` links and snippets that compile against the current
   API. No em dashes, no agent names, no generated-by footers. Verify with
   `pnpm lint:docs && pnpm build:docs && pnpm verify:docs`.
+- Name schema constants in PascalCase, for example `AppSchema` or `UserSchema`;
+  keep the public `schema` option lowercase.
+- Documentation should start with a small working example, explain observed behavior
+  in plain language, and link to advanced details. Avoid slogans and repeated
+  implementation rationale. Qualify guarantees with their failure conditions;
+  distinguish tests with fakes from real backend integration tests.
 - Verify with `pnpm check`. Do not commit, push or publish unless asked, and
   never add an agent attribution trailer or footer anywhere.
