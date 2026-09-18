@@ -5,6 +5,36 @@ import type { SyncMigrationStore } from "src/types/SyncMigrationStore";
 import { Silo } from "src/utils/Silo";
 import { value } from "src/utils/value";
 
+test("an asynchronous failure after selection does not switch to another candidate", async () => {
+  const failure = new Error("database open refused");
+  const primary = createMockAdapter({
+    mode: "async",
+    onCall: () => {
+      throw failure;
+    },
+  });
+  const fallback = createMockAdapter();
+  const silo = new Silo({
+    storages: {
+      default: {
+        adapters: [primary.adapter, fallback.adapter],
+        schema: { count: value({ fallback: 0 }) },
+      },
+    },
+  });
+  const count = silo.value("count");
+
+  await count.hydrated();
+  expect(count.status.get()).toEqual({
+    state: "error",
+    error: { phase: "hydrate", cause: failure },
+  });
+  expect(silo.native.default).toBe(primary.adapter.native);
+  expect(fallback.calls).toEqual([]);
+  expect(fallback.disposeCount()).toBe(1);
+  silo.dispose();
+});
+
 test("invalid schema cannot run migrations or advance the version", () => {
   const mock = createMockAdapter();
   const migration = vi.fn();
@@ -38,7 +68,7 @@ test("a failed native acquisition releases every candidate exactly once", () => 
           other: { adapters: [broken], schema: {} },
         },
       }),
-  ).toThrow("native unavailable");
+  ).toThrow('No adapter could initialize storage "other".');
   expect(first.disposeCount()).toBe(1);
   expect(second.disposeCount()).toBe(1);
 });
@@ -173,7 +203,7 @@ test("async migration writes discard return values from synchronous adapters", a
 test("a failed availability probe releases selected, unvisited, and rejected candidates", () => {
   const first = createMockAdapter();
   const second = createMockAdapter();
-  const spare = createMockAdapter();
+  const spare = createMockAdapter({ available: false });
   expect(
     () =>
       new Silo({
@@ -193,7 +223,7 @@ test("a failed availability probe releases selected, unvisited, and rejected can
           },
         },
       }),
-  ).toThrow("probe failed");
+  ).toThrow('No adapter could initialize storage "other".');
   expect([
     first.disposeCount(),
     second.disposeCount(),

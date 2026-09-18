@@ -1,5 +1,6 @@
 import type { NativeOf } from "src/types/NativeOf";
 import type { StorageAdapter } from "src/types/StorageAdapter";
+import type { StorageChange } from "src/types/StorageChange";
 import type { Storages } from "src/types/Storages";
 import { Lifetime } from "src/utils/common/Lifetime";
 import { Backend } from "src/utils/internal/adapter/Backend";
@@ -7,6 +8,8 @@ import { Backend } from "src/utils/internal/adapter/Backend";
 /** Owns candidate selection, native handles, and adapter cleanup. */
 export class AcquiredStorages<TStorages extends Storages = Storages> {
   #lifetime = new Lifetime();
+  #observations = new Lifetime();
+  #listener: ((storage: string, change: StorageChange) => void) | undefined;
 
   backends;
   native: NativeOf<TStorages>;
@@ -25,22 +28,43 @@ export class AcquiredStorages<TStorages extends Storages = Storages> {
           );
         }
       }
+      this.#lifetime.add(this.stopObserving);
 
       const backends = new Map<string, Backend>();
       const native = new Map<string, unknown>();
       for (const [name, { adapters }] of Object.entries(storages)) {
-        let adapter = adapters.at(-1);
-        if (adapter === undefined) {
+        if (adapters.length === 0) {
           throw new Error("A Silo needs at least one adapter.");
         }
-        // The last candidate is the unconditional fallback; only earlier ones are probed.
-        for (const candidate of adapters.slice(0, -1)) {
-          if (!candidate.available()) {
-            continue;
+        const failures: Error[] = [];
+        let selected: { adapter: StorageAdapter; native: unknown } | undefined;
+        for (const adapter of adapters) {
+          try {
+            if (!adapter.available()) {
+              failures.push(
+                new Error(`Adapter "${adapter.name}" is unavailable.`),
+              );
+              continue;
+            }
+            const handle = adapter.native;
+            this.#observe(name, adapter);
+            selected = { adapter, native: handle };
+            break;
+          } catch (cause) {
+            failures.push(
+              new Error(`Adapter "${adapter.name}" failed to initialize.`, {
+                cause,
+              }),
+            );
           }
-          adapter = candidate;
-          break;
         }
+        if (selected === undefined) {
+          throw new AggregateError(
+            failures,
+            `No adapter could initialize storage "${name}".`,
+          );
+        }
+        const { adapter } = selected;
         backends.set(
           name,
           new Backend({
@@ -52,7 +76,7 @@ export class AcquiredStorages<TStorages extends Storages = Storages> {
             },
           }),
         );
-        native.set(name, adapter.native);
+        native.set(name, selected.native);
       }
 
       const selected = new Set(
@@ -83,4 +107,31 @@ export class AcquiredStorages<TStorages extends Storages = Storages> {
   }
 
   dispose = this.#lifetime.dispose;
+
+  observe(listener: (storage: string, change: StorageChange) => void) {
+    this.#listener = listener;
+  }
+
+  stopObserving = () => {
+    this.#listener = undefined;
+    this.#observations.dispose();
+  };
+
+  #observe(storage: string, adapter: StorageAdapter) {
+    if (typeof adapter.observe !== "function") {
+      return;
+    }
+    let active = false;
+    const stop = adapter.observe((change) => {
+      if (!active) {
+        return;
+      }
+      this.#listener?.(storage, change);
+    });
+    active = true;
+    this.#observations.add(() => {
+      active = false;
+      stop();
+    });
+  }
 }

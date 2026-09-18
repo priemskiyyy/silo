@@ -138,20 +138,21 @@ test("a list with an asynchronous candidate is an asynchronous store, whichever 
   silo.dispose();
 });
 
-test("the last candidate is taken as given, so a list with nothing available still constructs", () => {
+test("a list with no available candidate fails without reading storage", () => {
   const first = createMockAdapter({ available: false });
   const last = createMockAdapter({ available: false });
-  const silo = new Silo({
-    storages: {
-      default: { adapters: [first.adapter, last.adapter], schema: Schema },
-    },
-  });
-
-  expect(silo.native.default).toBe(last.adapter.native);
-  silo.value("theme").set("dark");
-
-  expect(last.store.get("silo:theme")).toBe("dark");
-  silo.dispose();
+  expect(
+    () =>
+      new Silo({
+        storages: {
+          default: { adapters: [first.adapter, last.adapter], schema: Schema },
+        },
+      }),
+  ).toThrow('No adapter could initialize storage "default".');
+  expect(first.calls).toEqual([]);
+  expect(last.calls).toEqual([]);
+  expect(first.disposeCount()).toBe(1);
+  expect(last.disposeCount()).toBe(1);
 });
 
 test("native carries the adapter's own handle", () => {

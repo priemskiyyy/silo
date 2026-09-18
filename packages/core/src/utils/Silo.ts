@@ -77,16 +77,8 @@ export class Silo<TStorages extends Storages = Storages> {
       });
       this.#lifetime.add(values.dispose);
 
-      for (const [name, { adapter }] of Object.entries(backends)) {
-        if (typeof adapter.observe !== "function") {
-          continue;
-        }
-
-        // Binding avoids retaining constructor options through an observer closure.
-        this.#lifetime.add(
-          adapter.observe(values.handleStorageChange.bind(values, name)),
-        );
-      }
+      storages.observe(values.handleStorageChange.bind(values));
+      this.#lifetime.add(storages.stopObserving);
 
       migrations.start(options.migrations);
       return { native, migrations, values };

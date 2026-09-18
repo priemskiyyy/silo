@@ -657,10 +657,10 @@ assert.equal(typeof globalThis.window, "undefined", "must run with no DOM");
 const Schema = { theme: value({ fallback: "light" }), user: value() };
 const SecureSchema = { token: value() };
 
-// Every adapter constructs cold off the browser.
+// Browser adapters construct cold; unavailable candidates fall through to memory.
 for (const make of [memory, localStorage, sessionStorage, indexedDb]) {
   const adapter = make();
-  const silo = new Silo({ storages: { default: { adapters: [adapter], schema }, secure: { adapters: [memory()], schema: secureSchema } } });
+  const silo = new Silo({ storages: { default: { adapters: [adapter, memory()], schema: Schema }, secure: { adapters: [memory()], schema: SecureSchema } } });
   assert.equal(silo.value("theme").get(), "light", \`\${adapter.name}: fallback on the server\`);
   assert.equal(silo.value("user").get(), undefined, \`\${adapter.name}: undefaulted reads undefined\`);
   silo.dispose();

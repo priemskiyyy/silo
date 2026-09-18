@@ -30,23 +30,24 @@ test("the first available candidate is kept and unused candidates are released",
   ]).toEqual([1, 1, 1]);
 });
 
-test("the last candidate is an unconditional fallback and is never probed", () => {
+test("the final candidate is checked before selection", () => {
   const blocked = createMockAdapter({ available: false });
   const fallback = createMockAdapter();
   const probe = vi.spyOn(fallback.adapter, "available");
   const { backends, dispose } = acquire([blocked.adapter, fallback.adapter]);
   expect(backends.default.adapter).toBe(fallback.adapter);
-  expect(probe).not.toHaveBeenCalled();
+  expect(probe).toHaveBeenCalledOnce();
   dispose();
 });
 
-test("a single candidate is used without probing it", () => {
+test("a single unavailable candidate fails and is released", () => {
   const mock = createMockAdapter({ available: false });
   const probe = vi.spyOn(mock.adapter, "available");
-  const { backends, dispose } = acquire([mock.adapter]);
-  expect(backends.default.adapter).toBe(mock.adapter);
-  expect(probe).not.toHaveBeenCalled();
-  dispose();
+  expect(() => acquire([mock.adapter])).toThrow(
+    'No adapter could initialize storage "default".',
+  );
+  expect(probe).toHaveBeenCalledOnce();
+  expect(mock.disposeCount()).toBe(1);
   expect(() => acquire([])).toThrow("A Silo needs at least one adapter.");
 });
 
@@ -93,7 +94,7 @@ test("an unused asynchronous fallback still determines the execution mode", () =
 test("a failed constructor releases selected and unvisited candidates", () => {
   const chosen = createMockAdapter();
   const broken = createMockAdapter();
-  const spare = createMockAdapter();
+  const spare = createMockAdapter({ available: false });
   vi.spyOn(broken.adapter, "available").mockImplementation(() => {
     throw new Error("probe failed");
   });
@@ -104,7 +105,7 @@ test("a failed constructor releases selected and unvisited candidates", () => {
         default: { adapters: [chosen.adapter], schema: {} },
         other: { adapters: [broken.adapter, spare.adapter], schema: {} },
       }),
-  ).toThrow("probe failed");
+  ).toThrow('No adapter could initialize storage "other".');
   expect([
     chosen.disposeCount(),
     broken.disposeCount(),
