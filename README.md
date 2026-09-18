@@ -6,135 +6,167 @@
 
 **Typed, reactive persistence for TypeScript.**
 
-Declare stored values with types, fallbacks and optional validation. Silo
-provides reactive snapshots over 23 storage adapters, orders writes, and runs
-migrations before hydration. Bindings connect the same values to React, Vue,
-Solid and Svelte.
+Store preferences, drafts, and other application state in localStorage,
+IndexedDB, a device store, or a server backend. Read the current value
+synchronously, subscribe to changes, and check whether writes succeeded.
+React, Vue, Solid, and Svelte bindings use the same values.
 
 [Documentation](https://priemskiyyy.github.io/silo/) ·
 [Get started](https://priemskiyyy.github.io/silo/getting-started) ·
 [Live demo](https://priemskiyyy.github.io/silo/demo/) ·
-[Adapters](https://priemskiyyy.github.io/silo/adapters) ·
-[Devtools](https://priemskiyyy.github.io/silo/devtools)
+[Recipes](https://priemskiyyy.github.io/silo/recipes)
 
-## Quick start
+## Store a value
+
+For a browser application:
 
 ```sh
-pnpm add @priemskiyyy/silo @priemskiyyy/silo-react @priemskiyyy/silo-local-storage @priemskiyyy/silo-memory
+pnpm add @priemskiyyy/silo @priemskiyyy/silo-local-storage zod
 ```
 
-```tsx
+```ts
+// silo.ts
 import { Silo, value } from "@priemskiyyy/silo";
 import { localStorage } from "@priemskiyyy/silo-local-storage";
-import { memory } from "@priemskiyyy/silo-memory";
-import { SiloProvider, useValue } from "@priemskiyyy/silo-react";
+import { z } from "zod";
 
-type Theme = "light" | "dark";
+const ThemeSchema = z.enum(["light", "dark"]);
 
-const silo = new Silo({
+export const silo = new Silo({
   storages: {
     default: {
-      adapters: [localStorage(), memory()],
-      schema: { theme: value<Theme>({ fallback: "light" }) },
+      adapters: [localStorage()],
+      schema: { theme: value({ schema: ThemeSchema, fallback: "light" }) },
     },
-  },
-  // Version 2 renames the key an older release wrote. Each step is
-  // checkpointed as it lands, so a failure never runs it twice.
-  migrations: {
-    2: (store) => store.rename("legacyTheme", "theme"),
   },
 });
 
-declare module "@priemskiyyy/silo-react" {
-  interface Register {
-    silo: typeof silo;
-  }
-}
+const theme = silo.value("theme");
+theme.get(); // stored preference, or "light" when absent
 
-const ThemeToggle = () => {
-  const [theme, setTheme] = useValue("theme");
+theme.set("dark");
+await theme.flush(); // rejects if storage refused the write
+```
+
+`theme` gets its `"light" | "dark"` type and storage validation from `ThemeSchema`.
+The fallback is not written to storage.
+With IndexedDB or another asynchronous adapter, `get()` initially returns the
+fallback and subscribers are notified when the stored value arrives.
+
+## Use it in React
+
+```sh
+pnpm add @priemskiyyy/silo-react
+```
+
+```tsx
+import { useValue } from "@priemskiyyy/silo-react";
+import { silo } from "./silo";
+
+export const ThemeToggle = () => {
+  const [theme, setTheme] = useValue(silo.value("theme"));
 
   return (
-    <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-      {theme}
+    <button
+      onClick={() =>
+        setTheme((previous) => (previous === "dark" ? "light" : "dark"))
+      }
+    >
+      Theme: {theme}
     </button>
   );
 };
-
-export const App = () => (
-  <SiloProvider silo={silo}>
-    <ThemeToggle />
-  </SiloProvider>
-);
 ```
 
-`theme` is a `Theme`, never `undefined`, because the key declares a fallback.
-The first candidate whose `available()` probe passes wins, so the same store
-runs on a server or in a browser that blocks site data, on `memory()`. Swap
-`localStorage()` for `indexedDb()`, `mmkv({ storage })` or `redis({ client })`
-and the component does not change. `rename`, `move` and `copy` on the
-migration store cover most schema changes, across storages too. The full
+Passing a handle infers its type without a provider or module augmentation.
+For key-based hooks such as `useValue("theme")`, use a provider and optionally
+register the store's type. See [React](https://priemskiyyy.github.io/silo/react),
+[Vue](https://priemskiyyy.github.io/silo/vue),
+[Solid](https://priemskiyyy.github.io/silo/solid), or
+[Svelte](https://priemskiyyy.github.io/silo/svelte).
+
+**Rendering on a server?** Create a store per request and render a consistent
+placeholder for browser-only values. The
 [getting started guide](https://priemskiyyy.github.io/silo/getting-started)
-adds a second storage, a scope per user and an expiring key.
+shows the React status check; [server rendering](https://priemskiyyy.github.io/silo/server-rendering)
+covers request isolation and client setup.
 
-## A write made during hydration wins
+## Choose storage for each value
 
-An asynchronous storage read can finish after the user edits a value. Silo
-invalidates that older read when a local write is accepted, so its result
-cannot overwrite the edit.
+Each named storage has its own adapter and schema:
 
-```text
-t0  theme is acquired       hydration starts; snapshot is the fallback
-t1  theme.set("dark")      write starts; snapshot becomes "dark"
-t2  the older read settles  its result is discarded
-t3  await theme.flush()     resolves when the write reaches the adapter
+```ts
+import { sessionStorage } from "@priemskiyyy/silo-session-storage";
+
+const app = new Silo({
+  storages: {
+    default: {
+      adapters: [localStorage()],
+      schema: { theme: value({ schema: ThemeSchema, fallback: "light" }) },
+    },
+    session: {
+      adapters: [sessionStorage()],
+      schema: { draft: value({ fallback: "" }) },
+    },
+  },
+});
+
+app.value("theme").set("dark");
+app.value("session.draft").set("Hello");
 ```
 
-## Why Silo
+Install `@priemskiyyy/silo-session-storage` for this example. Storage names route
+API calls; they are not part of physical keys. Give storages distinct namespaces
+when they share a backend. [Storages and namespaces](https://priemskiyyy.github.io/silo/storages)
+shows the key layout and how to preserve existing keys.
 
-- **Reads never await.** `get()` returns the current snapshot on both adapter
-  modes, by reference. Decoding runs once per inbound value, so the identity is
-  stable and `useSyncExternalStore` consumers do not loop.
-- **A fallback is carried in the type.** A key declaring one reads as its value
-  type with no `| undefined`. A key without one keeps it.
-- **Storages, not one adapter.** A store runs over named storages, each with
-  its own schema, its own candidate list and its own namespace. `theme` and
-  `secure.token` are two typed keys of one store, and a migration can `move` a
-  key between them.
-- **Writes are ordered.** One write in flight and one latest-wins pending slot.
-  `flush()` captures the current mutation and resolves when it is durable, so a
-  coalesced-away write does not hang the barrier.
-- **Adapter failures are observable.** A failed write updates the value's
-  status and rejects `flush()`. Encoding and updater errors still throw to
-  the caller. A `decode` that
-  fails reports `{ state: "error", error: { phase: "hydrate" } }` and leaves the
-  stored raw value where it is, so the application can inspect or migrate it.
-- **Observing does not create demand.** Reaching a value with `silo.value(key)`
-  starts its hydration. `silo.status`, `flush()` and `silo.diagnostics` read
-  nothing, which is what lets the devtools inspect a store without reading it.
-- **The backend stays reachable.** `silo.native.default` carries the adapter's
-  own handle at its exact type, so nothing is hidden behind the abstraction.
-- **No runtime dependencies.** No package in this repository declares one. An
-  adapter that wraps an SDK is handed the SDK's instance.
+## Update older data
 
-## What Silo normalizes
+Add versioned steps to the same store's options:
 
-| Normalized                                                             | Left to the storage medium                    |
-| ---------------------------------------------------------------------- | --------------------------------------------- |
-| A typed schema: fallbacks, codecs, Standard Schema validation          | Durability, quota and eviction                |
-| Synchronous reads on every backend, with a stable snapshot identity    | Which values survive a round trip             |
-| Candidate adapters: the first available wins, memory is the floor      | Encryption, permissions and private browsing  |
-| Physical keys: a namespace per store or storage, scopes, visibility    | Transaction and locking semantics             |
-| Ordered, coalesced writes and `flush()` as the durability barrier      | Whether a change made elsewhere is observable |
-| Expiry for the keys that declare it                                    | How much space the origin or the device gets  |
-| Migrations across storages with `copy`, `move` and `rename`            | Storage inspection and clearing by the user   |
-| Changes made outside the store, applied while nothing local is pending |                                               |
-| Adapter failures reported through status and flush                     |                                               |
-| Diagnostics and devtools                                               |                                               |
+```ts
+migrations: {
+  1: (store) => store.rename("legacyTheme", "theme"),
+  2: (store) => store.move("draft", { to: "session" }),
+},
+```
 
-Adapters own serialization in both directions. That is why an exotic value
-survives on one backend and not another, and why it is a row in a table rather
-than a promise Silo makes.
+Silo runs steps in order before loading values and saves a checkpoint after each
+step succeeds. A failed checkpoint write, interruption, or concurrent startup can
+repeat a step. Write migrations that tolerate reruns; they are not transactions.
+See [migrations](https://priemskiyyy.github.io/silo/migrations).
+
+## More you can do
+
+| Task                                                     | API and example                                                                                             |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Separate workspace and user preferences                  | [`scope()` and explicit handles](https://priemskiyyy.github.io/silo/recipes#workspace-and-user-preferences) |
+| Validate data written by older versions or other clients | [`value({ schema })` and codecs](https://priemskiyyy.github.io/silo/schema-and-codecs)                      |
+| Preserve an existing physical key format                 | [Storage `keys: { encode, decode }`](https://priemskiyyy.github.io/silo/storages#existing-storage-keys)     |
+| Show whether a draft was saved and retry a failed write  | [`status` and `flush()`](https://priemskiyyy.github.io/silo/recipes#save-a-draft-and-retry)                 |
+| Keep filters in a shareable URL                          | [`searchParams()`](https://priemskiyyy.github.io/silo/recipes#shareable-state-in-the-url)                   |
+| Expire a dismissed banner or cached value                | [`expires: { in }` or `{ at }`](https://priemskiyyy.github.io/silo/ttl)                                     |
+| Free records after leaving a workspace                   | [`scope.release()`](https://priemskiyyy.github.io/silo/scopes#release)                                      |
+| Inspect values, errors, and migration events             | [Devtools](https://priemskiyyy.github.io/silo/devtools)                                                     |
+
+## Behavior to know
+
+- A local edit supersedes an older hydration read. That read cannot overwrite
+  the edit when it finishes.
+- Writes to each value are ordered. While one is pending, later edits replace
+  the queued value. `flush()` waits for the accepted writes or their replacements.
+- Adapter errors appear on `status`; failed writes also reject `flush()`.
+  Encoding and updater errors throw to the caller.
+- `[localStorage(), memory()]` selects memory if the availability probe fails.
+  Selection happens once. An asynchronous open failure or a later write failure
+  does not switch adapters. See [initialization](https://priemskiyyy.github.io/silo/adapters#candidate-lists-and-available).
+- Backend limits still apply: supported value types, quotas, eviction,
+  permissions, and durability depend on the adapter.
+
+## Runnable examples
+
+- [Browser Fieldbook](examples/react-web): scoped notebooks, eight storage backends, recovery controls, and devtools.
+- [Expo Fieldbook](examples/expo): device drafts, global and user preferences, and SecureStore.
 
 ## Frameworks and adapters
 
@@ -175,7 +207,8 @@ than a promise Silo makes.
 
 The [adapter comparison](https://priemskiyyy.github.io/silo/adapters) shows
 which values each backend carries, which ones observe changes made elsewhere,
-and what `silo.native` exposes. `localStorage` and `sessionStorage` are exported
+and what `silo.native` exposes. The [verification matrix](https://priemskiyyy.github.io/silo/verification)
+shows which adapters have real backend tests and which use fakes. `localStorage` and `sessionStorage` are exported
 under the names of the DOM globals they wrap, which shadows them inside the
 importing module: `import { localStorage as localStorageAdapter }` if that
 module needs both.
@@ -183,10 +216,9 @@ module needs both.
 ## Live demo and devtools
 
 Open the [hosted Fieldbook demo](https://priemskiyyy.github.io/silo/demo/):
-one store over eight storages, a REST server that lives in the page, and a Lab
-that breaks them on purpose. Then open the Silo Devtools launcher and watch the
-records, writes, refusals and migrations that produced what you see. No backend,
-account, or credentials.
+a React notebook using eight storages. Its Lab simulates slow reads, failed
+writes, and unavailable storage. Open Devtools to inspect the corresponding
+records and events. The demo runs locally in the browser without an account.
 
 The inspector is built on `silo.diagnostics`, renders in a shadow root, works
 without a framework, and never reads a value the application has not reached.
