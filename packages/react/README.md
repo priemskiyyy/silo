@@ -4,43 +4,39 @@
 
 # @priemskiyyy/silo-react
 
-React hooks for [Silo](https://priemskiyyy.github.io/silo/). The provider
-publishes one store; the hooks read stored values, observe their status, reach
-the provider's scope and the adapters' native handles. The binding holds no
-persistence logic: it is `useSyncExternalStore` over the store's observables.
-React 19.2 or newer.
+React hooks for [Silo](https://priemskiyyy.github.io/silo/). Read typed values,
+update them with React-style setters, and observe loading or storage errors.
+Requires React 19.2 or newer.
 
 ```sh
-pnpm add @priemskiyyy/silo @priemskiyyy/silo-react @priemskiyyy/silo-local-storage @priemskiyyy/silo-memory
+pnpm add @priemskiyyy/silo @priemskiyyy/silo-react @priemskiyyy/silo-local-storage zod
 ```
 
 ```tsx
-import type * as React from "react";
 import { Silo, value } from "@priemskiyyy/silo";
 import { localStorage } from "@priemskiyyy/silo-local-storage";
-import { memory } from "@priemskiyyy/silo-memory";
-import { SiloProvider, useValue } from "@priemskiyyy/silo-react";
+import { z } from "zod";
 
-type Theme = "light" | "dark";
+const ThemeSchema = z.enum(["light", "dark"]);
+import { useValue, useValueStatus } from "@priemskiyyy/silo-react";
 
 const silo = new Silo({
   storages: {
     default: {
-      adapters: [localStorage(), memory()],
-      schema: { theme: value<Theme>({ fallback: "light" }) },
+      adapters: [localStorage()],
+      schema: { theme: value({ schema: ThemeSchema, fallback: "light" }) },
     },
   },
 });
 
-// One augmentation, next to the store, types every hook.
-declare module "@priemskiyyy/silo-react" {
-  interface Register {
-    silo: typeof silo;
-  }
-}
+export const ThemeToggle = () => {
+  const handle = silo.value("theme");
+  const [theme, setTheme] = useValue(handle);
+  const status = useValueStatus(handle);
 
-const ThemeToggle: React.FunctionComponent = () => {
-  const [theme, setTheme] = useValue("theme");
+  if (status.state === "hydrating") {
+    return <button disabled>Loading theme…</button>;
+  }
 
   return (
     <button
@@ -52,28 +48,26 @@ const ThemeToggle: React.FunctionComponent = () => {
     </button>
   );
 };
-
-export const Application: React.FunctionComponent = () => (
-  <SiloProvider silo={silo}>
-    <ThemeToggle />
-  </SiloProvider>
-);
 ```
 
-With `Register` augmented, keys are narrowed to the schema, an unknown key is a
-compile error, a key with a `fallback` reads without `| undefined`, and the
-native handles carry their adapters' types. Without it the hooks still work,
-with `string` keys and `unknown` values.
+Handle calls infer their value type without a provider. For key-based calls such
+as `useValue("theme")`, use `SiloProvider` and optionally augment `Register` with
+`{ silo: typeof silo }`. The [React guide](https://priemskiyyy.github.io/silo/react)
+shows that setup.
 
-| Export                           | Purpose                                                                                  |
-| -------------------------------- | ---------------------------------------------------------------------------------------- |
-| `SiloProvider`                   | Publishes a store, and optionally a `scope` segment the value hooks below read under.    |
-| `useValue(key, onChange?)`       | Read one value and rerender on change; returns `[value, setValue]` with updater support. |
-| `useValueStatus(key, onChange?)` | Observe one value's `hydrating`, `ready` or `error` progress without reading the value.  |
-| `useSiloStatus(onChange?)`       | Observe the store: `migrating`, `ready`, or the migration that failed.                   |
-| `useScope()`                     | The provider's scope: `value`, `scope`, `clear` and `release` under its prefix.          |
-| `useSilo()`                      | The store itself, for `flush`, `ready`, `native` and `diagnostics`.                      |
-| `useNativeStorage()`             | The native handles by storage name, such as `Storage \| null` for `localStorage()`.      |
+The module-level store above is for a browser application. Server-rendered apps
+need a store per request and matching server/client markup; see
+[server rendering](https://priemskiyyy.github.io/silo/server-rendering).
+
+| Export                                   | Purpose                                                                                  |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `SiloProvider`                           | Publishes a store, and optionally a `scope` segment the value hooks below read under.    |
+| `useValue(keyOrHandle, onChange?)`       | Read one value and rerender on change; returns `[value, setValue]` with updater support. |
+| `useValueStatus(keyOrHandle, onChange?)` | Observe one value's `hydrating`, `ready` or `error` progress without reading the value.  |
+| `useSiloStatus(onChange?)`               | Observe the store: `migrating`, `ready`, or the migration that failed.                   |
+| `useScope()`                             | The provider's scope: `value`, `scope`, `clear` and `release` under its prefix.          |
+| `useSilo()`                              | The store itself, for `flush`, `ready`, `native` and `diagnostics`.                      |
+| `useNativeStorage()`                     | The native handles by storage name, such as `Storage \| null` for `localStorage()`.      |
 
 Keys of the default storage are bare; keys of any other storage read as
 `storage.key`. A synchronous adapter can load the persisted value during the
@@ -93,6 +87,16 @@ The devtools ship a wrapper for this provider:
 - [Server rendering](https://priemskiyyy.github.io/silo/server-rendering)
 - [Scopes](https://priemskiyyy.github.io/silo/scopes)
 - [Errors and recovery](https://priemskiyyy.github.io/silo/errors-and-recovery)
+
+## Explicit handles
+
+`useValue(handle)` and `useValueStatus(handle)` accept scoped values directly,
+without a provider or `Register`. Mix root, workspace, and user handles in one
+component; changing a handle retargets its subscription and setter. Wait for
+required IDs before mounting the consumer; an undefined provider scope selects
+root storage.
+
+See the [binding guide](https://priemskiyyy.github.io/silo/react#explicit-value-handles).
 
 ## License
 
