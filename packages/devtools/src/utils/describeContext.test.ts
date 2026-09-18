@@ -122,3 +122,12 @@ test("an invalid hydrate is an error, a failed migration too", () => {
     describeContext(event("store disposed", null, "store"), false).kind,
   ).toBe("STORE");
 });
+
+test("adapter observation failures appear in the error filter", () => {
+  expect(
+    describeContext(
+      event("observation failed", { cause: new Error("offline") }, "store"),
+      false,
+    ),
+  ).toMatchObject({ kind: "ERROR", summary: "offline" });
+});

@@ -14,7 +14,11 @@ const landedInvalid = (context: unknown) =>
 export const getEventKind = (
   event: Pick<SiloDiagnosticEvent, "source" | "type" | "context">,
 ): RecordedEventKind => {
-  if (event.type === "write refused" || event.type === "migration failed") {
+  if (
+    event.type === "write refused" ||
+    event.type === "migration failed" ||
+    event.type === "observation failed"
+  ) {
     return "ERROR";
   }
 
