@@ -170,6 +170,22 @@ export class SiloValues<TStorages extends Storages> {
       return;
     }
 
+    if ("error" in change) {
+      const affected =
+        change.key === null ? [...records.values()] : [records.get(change.key)];
+      affected.forEach((record) => record?.receiveError(change.error.cause));
+      if (this.#diagnostics.recording) {
+        this.#diagnostics.record({
+          source: "store",
+          type: "observation failed",
+          storage,
+          key: change.key,
+          context: change.error,
+        });
+      }
+      return;
+    }
+
     if (change.key === null) {
       [...records.values()].forEach((record) => record.invalidate());
       return;

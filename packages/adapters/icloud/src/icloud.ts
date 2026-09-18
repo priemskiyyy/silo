@@ -43,17 +43,28 @@ export const icloud = ({
       }
 
       let stopped = false;
-      const report = (key: string) =>
-        store.kvGetItem(key).then(
-          (text) => {
-            if (stopped) {
-              return;
-            }
+      const report = (key: string) => {
+        const handleError = (cause: unknown) => {
+          if (stopped) {
+            return;
+          }
+          listener({ key, error: { cause } });
+        };
+        let read;
+        try {
+          read = store.kvGetItem(key);
+        } catch (cause) {
+          handleError(cause);
+          return;
+        }
+        read.then((text) => {
+          if (stopped) {
+            return;
+          }
 
-            listener({ key, text });
-          },
-          () => undefined,
-        );
+          listener({ key, text });
+        }, handleError);
+      };
       const subscription = store.onKVStoreRemoteChanged(({ changedKeys }) => {
         if (stopped) {
           return;

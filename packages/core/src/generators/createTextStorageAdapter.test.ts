@@ -140,7 +140,7 @@ test("a stored text this adapter did not write throws on read and rejects when a
   ).rejects.toThrow(SyntaxError);
 });
 
-test("an observed text change is decoded, an absent one reports undefined, and one that will not decode is dropped", () => {
+test("an observed text change is decoded, an absent one reports undefined, and one that will not decode reports its cause", () => {
   const backend = textBackend();
   const adapter = createTextStorageAdapter(backend.sync);
   const listener = vi.fn();
@@ -154,6 +154,7 @@ test("an observed text change is decoded, an absent one reports undefined, and o
   expect(listener.mock.calls).toEqual([
     [{ key: "silo:theme", value: "dark" }],
     [{ key: "silo:theme", value: undefined }],
+    [{ key: "silo:theme", error: { cause: expect.any(SyntaxError) } }],
     [{ key: null }],
   ]);
 });
@@ -294,8 +295,10 @@ test("observer failures are not swallowed as malformed external data", () => {
   });
   adapter.observe?.(listener);
 
-  expect(() => backend.emit({ key: "theme", text: "invalid" })).not.toThrow();
-  expect(listener).not.toHaveBeenCalled();
+  expect(() => backend.emit({ key: "theme", text: "invalid" })).toThrow(
+    failure,
+  );
+  expect(listener).toHaveBeenCalledOnce();
   expect(() => backend.emit({ key: "theme", text: '"dark"' })).toThrow(failure);
   adapter.dispose();
 });

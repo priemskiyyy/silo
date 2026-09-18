@@ -34,9 +34,16 @@ export const mmkv = ({
       }
     },
     observe: (listener) => {
-      const subscription = storage.addOnValueChangedListener((key) =>
-        listener({ key, text: storage.getString(key) }),
-      );
+      const subscription = storage.addOnValueChangedListener((key) => {
+        let text;
+        try {
+          text = storage.getString(key);
+        } catch (cause) {
+          listener({ key, error: { cause } });
+          return;
+        }
+        listener({ key, text });
+      });
       const stop = () => {
         if (!stops.delete(stop)) {
           return;

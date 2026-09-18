@@ -3,11 +3,15 @@
  * everything changed and the core must re-read.
  *
  * The key is the physical key the core composed, and `value` is already decoded
- * by the adapter, absent values reported as `undefined`.
+ * by the adapter, absent values reported as `undefined`. An `error` reports a
+ * failed external read or decode; a null key applies to the whole storage.
  *
  * @example
  * ```ts
- * adapter.observe?.((change) => (change.key === null ? reload() : apply(change.key, change.value)));
+ * adapter.observe?.((change) => console.log(change));
  * ```
  */
-export type StorageChange = { key: string; value: unknown } | { key: null };
+export type StorageChange =
+  | { key: string; value: unknown }
+  | { key: null }
+  | { key: string | null; error: { cause: unknown } };

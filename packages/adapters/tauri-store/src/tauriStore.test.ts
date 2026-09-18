@@ -162,7 +162,9 @@ test("a rejected subscription is handled before the observer is stopped", async 
   const { changes, stop } = observe(adapter);
 
   await settle();
-  expect(changes).toEqual([]);
+  expect(changes).toEqual([
+    { key: null, error: { cause: new Error("IPC unavailable") } },
+  ]);
   stop();
   adapter.dispose();
   await settle();

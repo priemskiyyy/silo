@@ -129,7 +129,7 @@ test("invalid outside data does not cancel initial hydration", async () => {
 });
 
 test.each(["sync", "async"])(
-  "a throwing expiry getter settles hydration and is ignored in external changes (%s)",
+  "a throwing expiry getter reports hydration and external read failures (%s)",
   async (mode) => {
     const mock =
       mode === "async" ? createMockAdapter({ mode }) : createMockAdapter();
@@ -167,7 +167,10 @@ test.each(["sync", "async"])(
     mock.emit({ key: "silo:token", value: raw });
 
     expect(token.get()).toBe("recovered");
-    expect(token.status.get()).toEqual({ state: "ready" });
+    expect(token.status.get()).toEqual({
+      state: "error",
+      error: { phase: "read", cause: failure },
+    });
     silo.dispose();
   },
 );

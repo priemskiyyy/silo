@@ -187,6 +187,13 @@ export class ValueRecord {
     );
   }
 
+  receiveError(cause: unknown) {
+    if (this.#lifecycle.state !== "ACTIVE" || this.#writes.busy()) {
+      return;
+    }
+    this.#handleExternal({ kind: "invalid", error: cause });
+  }
+
   reload(): Promise<void> {
     if (this.#lifecycle.state === "DISPOSED") {
       return Promise.reject(new Error(this.#lifecycle.reason));
@@ -415,7 +422,30 @@ export class ValueRecord {
 
   #handleExternal(inbound: ReturnType<ValueCodec["decode"]>) {
     if (inbound.kind === "invalid") {
+      const revision = this.#revision;
       this.#trace("outside dropped", () => ({ cause: inbound.error }));
+      if (!this.#current(revision)) {
+        return;
+      }
+      const snapshot = this.#state.get();
+      // A rejected notification must not settle or interrupt the first read.
+      if (snapshot.status.state === "hydrating") {
+        return;
+      }
+      if (
+        snapshot.status.state === "error" &&
+        snapshot.status.error.phase === "write"
+      ) {
+        return;
+      }
+      this.#changed();
+      this.#state.set({
+        value: snapshot.value,
+        status: {
+          state: "error",
+          error: { phase: "read", cause: inbound.error },
+        },
+      });
       return;
     }
 

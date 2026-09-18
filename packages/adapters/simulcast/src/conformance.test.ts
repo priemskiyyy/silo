@@ -11,7 +11,7 @@ const realtime = createRealtime();
 // Another device writes to the shared backend, and the server announces it.
 const externalWrite = (
   store: Map<string, unknown>,
-  change: Parameters<typeof realtime.announce>[0],
+  change: Exclude<Parameters<typeof realtime.announce>[0], { error: unknown }>,
 ) => {
   if (change.key === null) {
     store.clear();

@@ -1,7 +1,7 @@
 /**
  * One thing that happened inside a store. `value` events carry the storage
- * and physical key of the record they belong to; `migration` and `store`
- * events carry neither. `type` is a short phrase such as `write accepted`,
+ * and physical key of the record they belong to. Store observation failures
+ * carry the affected storage and optional key; migrations carry neither. `type` is a short phrase such as `write accepted`,
  * `hydrate landed`, `outside dropped` or `migration step`; `context` is the
  * detail, never an SDK object.
  *

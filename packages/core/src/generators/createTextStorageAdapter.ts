@@ -11,7 +11,7 @@ import { createStorageAdapter } from "src/generators/createStorageAdapter";
 /**
  * Builds an adapter over string storage using JSON or a custom `format`.
  * A format returning undefined removes the key. Malformed reads fail hydration;
- * malformed external changes are ignored. Includes idempotent disposal.
+ * malformed external changes report their error. Includes idempotent disposal.
  *
  * @example
  * ```ts
@@ -50,7 +50,7 @@ export function createTextStorageAdapter<TNative>(
       : {
           observe: (listener: (change: StorageChange) => void) =>
             observe.call(mapping, (change) => {
-              if (change.key === null) {
+              if ("error" in change || change.key === null) {
                 listener(change);
                 return;
               }
@@ -58,7 +58,8 @@ export function createTextStorageAdapter<TNative>(
               let value: unknown;
               try {
                 value = decode(format, change.text);
-              } catch {
+              } catch (cause) {
+                listener({ key: change.key, error: { cause } });
                 return;
               }
               listener({ key: change.key, value });

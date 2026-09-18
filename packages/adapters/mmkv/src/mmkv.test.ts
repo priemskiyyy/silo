@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { StorageChange } from "@priemskiyyy/silo";
 import { createFakeMmkv } from "src/mmkv.fixture";
 import { mmkv } from "src/mmkv";
@@ -78,13 +78,15 @@ test("a change made through the same instance elsewhere reaches an observer deco
   adapter.dispose();
 });
 
-test("a change that will not decode is dropped rather than thrown into the listener", () => {
+test("a malformed change reports its error without throwing", () => {
   const fake = createFakeMmkv();
   const adapter = mmkv({ storage: fake.storage });
   const { changes, stop } = observe(adapter);
 
   expect(() => fake.storage.set(KEY, "not json")).not.toThrow();
-  expect(changes).toEqual([]);
+  expect(changes).toEqual([
+    { key: KEY, error: { cause: expect.any(SyntaxError) } },
+  ]);
 
   stop();
   adapter.dispose();
@@ -104,4 +106,17 @@ test("dispose silences an observer the consumer never stopped and keeps the data
   expect(fake.listeners.size).toBe(0);
   expect(fake.store.get(KEY)).toBe('"kept"');
   expect(() => adapter.get(KEY)).toThrow("disposed mmkv storage adapter");
+});
+
+test("a failed read in a native notification reports its cause", () => {
+  const fake = createFakeMmkv();
+  const adapter = mmkv({ storage: fake.storage });
+  const { changes } = observe(adapter);
+  const failure = new Error("storage unavailable");
+  vi.spyOn(fake.storage, "getString").mockImplementation(() => {
+    throw failure;
+  });
+  expect(() => fake.storage.set(KEY, "1")).not.toThrow();
+  expect(changes).toEqual([{ key: KEY, error: { cause: failure } }]);
+  adapter.dispose();
 });

@@ -5,7 +5,10 @@ import { testStorageAdapter } from "src/testing/testStorageAdapter";
 
 // Another tab's write: the store changes and the change is reported, which is
 // exactly the pair a real backend's `observe` delivers.
-const externalWrite = (native: MockNative, change: StorageChange) => {
+const externalWrite = (
+  native: MockNative,
+  change: Exclude<StorageChange, { error: unknown }>,
+) => {
   if (change.key === null) {
     native.store.clear();
     native.emit(change);

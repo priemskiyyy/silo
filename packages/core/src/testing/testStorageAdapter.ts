@@ -21,7 +21,7 @@ export type StorageAdapterConformanceOptions<TAdapter extends StorageAdapter> =
      */
     externalWrite?: (
       adapter: TAdapter,
-      change: StorageChange,
+      change: Exclude<StorageChange, { error: unknown }>,
     ) => void | Promise<void>;
   };
 
@@ -435,8 +435,9 @@ export const testStorageAdapter = <TAdapter extends StorageAdapter>({
           expect(
             changes.some(
               (change) =>
-                change.key === null ||
-                (change.key === key && change.value === undefined),
+                !("error" in change) &&
+                (change.key === null ||
+                  (change.key === key && change.value === undefined)),
             ),
             `${name}: a backend cleared from outside must report { key: null }, or the removal of each key it held`,
           ).toBe(true),

@@ -521,7 +521,10 @@ test("an external payload that will not decode leaves the previous good snapshot
   mock.emit({ key: "silo:strict", value: 42 });
 
   expect(strict.get()).toBe("good");
-  expect(strict.status.get()).toEqual({ state: "ready" });
+  expect(strict.status.get()).toMatchObject({
+    state: "error",
+    error: { phase: "read" },
+  });
   silo.dispose();
 });
 

@@ -300,10 +300,10 @@ expectType<Equal<typeof session.native, { default: Storage | null }>>(true);
 expectType<Equal<typeof silo.status, ObservableValue<SiloStatus>>>(true);
 expectType<Equal<ReturnType<typeof silo.value<"theme">>["status"], ObservableValue<ValueStatus>>>(true);
 // Each status narrows the phase to the sides that can fail there; the cause stays unknown.
-expectType<Equal<Extract<ValueStatus, { state: "error" }>["error"]["phase"], "hydrate" | "write">>(true);
+expectType<Equal<Extract<ValueStatus, { state: "error" }>["error"]["phase"], "hydrate" | "read" | "write">>(true);
 expectType<Equal<Extract<SiloStatus, { state: "error" }>["error"]["phase"], "migrate">>(true);
 expectType<Equal<Extract<SiloStatus, { state: "error" }>["error"]["cause"], unknown>>(true);
-expectType<Equal<SiloError["phase"], "migrate" | "hydrate" | "write">>(true);
+expectType<Equal<SiloError["phase"], "migrate" | "hydrate" | "read" | "write">>(true);
 expectType<Equal<ReturnType<typeof silo.clear>, Promise<void>>>(true);
 const scoped: SiloScope<typeof storages> = silo.scope("users:7");
 expectType<Equal<ReturnType<typeof scoped.value<"theme">>["get"], () => Theme>>(true);

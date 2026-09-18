@@ -86,7 +86,7 @@ test("observing registers the native notification once and reports each changed 
   adapter.dispose();
 });
 
-test("a remote change naming no keys is the coarse report, and a value that will not decode is dropped", async () => {
+test("a remote change naming no keys is the coarse report, and a malformed value reports its error", async () => {
   const fake = createFakeCloudStore();
   const adapter = icloud({ store: fake.module });
   const { changes } = observe(adapter);
@@ -99,7 +99,11 @@ test("a remote change naming no keys is the coarse report, and a value that will
     expect(changes).toContainEqual({ key: "silo:visits", value: 4 }),
   );
 
-  expect(changes).toEqual([{ key: null }, { key: "silo:visits", value: 4 }]);
+  expect(changes).toEqual([
+    { key: null },
+    { key: KEY, error: { cause: expect.any(SyntaxError) } },
+    { key: "silo:visits", value: 4 },
+  ]);
   adapter.dispose();
 });
 
@@ -149,4 +153,44 @@ test("a change from another device updates a silo value in place", async () => {
   await vi.waitFor(() => expect(theme.get()).toBe("dark"));
 
   silo.dispose();
+});
+
+test.each(["throw", "reject"])(
+  "a remote read that fails by %s reports its cause",
+  async (kind) => {
+    const fake = createFakeCloudStore();
+    const adapter = icloud({ store: fake.module });
+    const { changes } = observe(adapter);
+    const failure = new Error("cloud unavailable");
+    vi.spyOn(fake.module, "kvGetItem").mockImplementation(() => {
+      if (kind === "throw") {
+        throw failure;
+      }
+      return Promise.reject(failure);
+    });
+    expect(() => fake.remote({ reason: 0, changedKeys: [KEY] })).not.toThrow();
+    await vi.waitFor(() =>
+      expect(changes).toEqual([{ key: KEY, error: { cause: failure } }]),
+    );
+    adapter.dispose();
+  },
+);
+
+test("a failed remote read finishing after stop stays silent", async () => {
+  const fake = createFakeCloudStore();
+  const adapter = icloud({ store: fake.module });
+  const { changes, stop } = observe(adapter);
+  let fail: (cause: unknown) => void = () => {};
+  vi.spyOn(fake.module, "kvGetItem").mockImplementation(
+    () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      }),
+  );
+  fake.remote({ reason: 0, changedKeys: [KEY] });
+  stop();
+  fail(new Error("late failure"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(changes).toEqual([]);
+  adapter.dispose();
 });

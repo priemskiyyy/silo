@@ -271,7 +271,7 @@ export type StoreFailurePhase = Expect<
 export type ValueFailurePhase = Expect<
   Equal<
     Extract<ValueStatus, { state: "error" }>["error"]["phase"],
-    "hydrate" | "write"
+    "hydrate" | "read" | "write"
   >
 >;
 

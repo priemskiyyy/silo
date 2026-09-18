@@ -50,7 +50,12 @@ export const tauriStore = ({
 
           listener({ key, value });
         })
-        .catch(() => undefined);
+        .catch((cause: unknown) => {
+          if (stopped) {
+            return;
+          }
+          listener({ key: null, error: { cause } });
+        });
       const stop = () => {
         if (stopped) {
           return;

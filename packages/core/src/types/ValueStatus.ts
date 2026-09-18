@@ -6,7 +6,8 @@ import type { SiloError } from "src/types/SiloError";
  * already finished by the time the handle is returned.
  *
  * `error.phase` says which side failed. A `hydrate` error leaves the raw value
- * untouched on the adapter, so `set` and `remove` are the recovery path.
+ * untouched on the adapter. `reload` retries reading it; `set` and `remove`
+ * replace it. A `read` error keeps the current snapshot.
  *
  * @example
  * ```ts
@@ -17,4 +18,7 @@ import type { SiloError } from "src/types/SiloError";
 export type ValueStatus =
   | { state: "hydrating" }
   | { state: "ready" }
-  | { state: "error"; error: SiloError & { phase: "hydrate" | "write" } };
+  | {
+      state: "error";
+      error: SiloError & { phase: "hydrate" | "read" | "write" };
+    };

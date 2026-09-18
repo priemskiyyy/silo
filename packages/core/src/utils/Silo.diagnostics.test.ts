@@ -422,7 +422,10 @@ test.each(["silo:theme", null])(
     mock.emit(key === null ? { key } : { key, value: 42 });
 
     expect(theme.get()).toBe("light");
-    expect(silo.diagnostics.get()).toBe(before);
+    expect(silo.diagnostics.get()).not.toBe(before);
+    expect(silo.diagnostics.get().records[0]?.status).toMatchObject({
+      error: { phase: "read" },
+    });
     expect(events[0]).toMatchObject({
       type: "outside dropped",
       context: { cause: expect.any(Error) },
