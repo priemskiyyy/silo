@@ -67,7 +67,10 @@ export class WriteQueue {
 
   accept(options: {
     request: { kind: "set"; raw: unknown } | { kind: "remove" };
-    observer: { error: (cause: unknown) => void };
+    observer: {
+      accepted?: () => void;
+      error: (cause: unknown) => void;
+    };
   }) {
     const operation = { ...options, generation: ++this.#generation.accepted };
     this.#failure = null;
@@ -84,8 +87,9 @@ export class WriteQueue {
       this.#operations = { inflight: undefined, pending: undefined };
     }
     this.#operations.pending = operation;
-    this.#drain();
     this.#options.trace?.changed();
+    operation.observer.accepted?.();
+    this.#drain();
   }
 
   acknowledge() {
@@ -95,7 +99,6 @@ export class WriteQueue {
 
     this.#failure = null;
     this.#settle(++this.#generation.accepted);
-    this.#options.trace?.changed();
   }
 
   busy() {
@@ -145,6 +148,7 @@ export class WriteQueue {
     this.#release(this.#generation.accepted, (barrier) =>
       barrier.settlement.reject(error),
     );
+    this.#options.trace?.changed();
     latest?.observer.error(error);
   }
 
@@ -181,6 +185,7 @@ export class WriteQueue {
     const operation = operations.pending;
     operations.pending = undefined;
     operations.inflight = operation;
+    this.#options.trace?.changed();
     const observer = {
       done: () => {
         if (this.#operations?.inflight !== operation) {
@@ -191,7 +196,6 @@ export class WriteQueue {
         this.#settle(operation.generation);
         this.#options.trace?.durable(operation.generation);
         this.#drain();
-        this.#options.trace?.changed();
       },
       error: (error: unknown) => {
         if (this.#operations?.inflight !== operation) {
@@ -201,7 +205,6 @@ export class WriteQueue {
         this.#operations.inflight = undefined;
         this.#refuse(operation, error);
         this.#drain();
-        this.#options.trace?.changed();
       },
     };
 
@@ -224,12 +227,14 @@ export class WriteQueue {
     this.#release(this.#generation.durable, (barrier) =>
       barrier.settlement.resolve(),
     );
+    this.#options.trace?.changed();
   }
 
   #refuse(operation: WriteOperation, error: unknown) {
     this.#release(operation.generation, (barrier) =>
       barrier.settlement.reject(error),
     );
+    this.#options.trace?.changed();
     if (this.#generation.accepted !== operation.generation) {
       return;
     }

@@ -267,19 +267,23 @@ export class ValueRecord {
     const revision = ++this.#revision;
     this.#read = null;
     let snapshot: Snapshot = { value, status: READY_VALUE_STATUS };
-    let accepted = false;
-    this.#trace("write accepted", () => ({ kind: request.kind, revision }));
+    let submitting = true;
     // Inline failures belong to this commit; later failures publish a new one.
     this.#writes.accept({
       request,
       observer: {
+        accepted: () =>
+          this.#trace("write accepted", () => ({
+            kind: request.kind,
+            revision,
+          })),
         error: (cause) => {
           snapshot = {
             value,
             status: { state: "error", error: { phase: "write", cause } },
           };
 
-          if (!accepted) {
+          if (submitting) {
             return;
           }
 
@@ -287,7 +291,7 @@ export class ValueRecord {
         },
       },
     });
-    accepted = true;
+    submitting = false;
     this.#publish(revision, snapshot);
   }
 

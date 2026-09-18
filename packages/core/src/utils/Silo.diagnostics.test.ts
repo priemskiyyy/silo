@@ -83,6 +83,60 @@ test("a record appears once reached, with its identity, snapshot and write count
   silo.dispose();
 });
 
+test.each([
+  { mode: "sync", event: "write accepted" },
+  { mode: "async", event: "write accepted" },
+  { mode: "sync", event: "write durable" },
+  { mode: "async", event: "write durable" },
+  { mode: "sync", event: "write refused" },
+  { mode: "async", event: "write refused" },
+])("$event exposes current write counters ($mode)", async ({ mode, event }) => {
+  const failure = new Error("quota");
+  const onCall = (call: { operation: string }) => {
+    if (event !== "write refused") {
+      return;
+    }
+    if (call.operation !== "set") {
+      return;
+    }
+    throw failure;
+  };
+  const mock =
+    mode === "async"
+      ? createMockAdapter({ mode, onCall })
+      : createMockAdapter({ onCall });
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+  });
+  const theme = silo.value("theme");
+  await theme.hydrated();
+  silo.diagnostics.get();
+  const seen: unknown[] = [];
+  silo.diagnostics.events.subscribe((observed) => {
+    if (observed.type === event) {
+      seen.push(silo.diagnostics.get().records[0]?.writes);
+    }
+  });
+
+  theme.set("dark");
+  silo.diagnostics.get();
+  if (event === "write refused") {
+    await expect(theme.flush()).rejects.toBe(failure);
+  }
+  if (event === "write durable") {
+    await theme.flush();
+  }
+
+  expect(seen).toEqual([
+    {
+      accepted: 1,
+      durable: event === "write durable" ? 1 : 0,
+      inflight: false,
+    },
+  ]);
+  silo.dispose();
+});
+
 test("changes notify once per microtask and events say what happened, in order", async () => {
   const mock = createMockAdapter();
   mock.store.set("silo:theme", "dark");
@@ -425,3 +479,154 @@ test("replacing an event listener during a write preserves event order", () => {
   });
   silo.dispose();
 });
+
+test.each([
+  { operation: "set", outcome: "durable" },
+  { operation: "remove", outcome: "durable" },
+  { operation: "set", outcome: "refused" },
+  { operation: "remove", outcome: "refused" },
+])(
+  "flush from write acceptance waits for a $operation that is $outcome",
+  async ({ operation, outcome }) => {
+    const mock = createMockAdapter({ mode: "async", hold: true });
+    mock.store.set("silo:theme", "stored");
+    const silo = new Silo({
+      storages: { default: { adapters: [mock.adapter], schema } },
+    });
+    const theme = silo.value("theme");
+    mock.calls[0]?.settle();
+    await theme.hydrated();
+    const barriers: Promise<void>[] = [];
+    const settled = vi.fn();
+    silo.diagnostics.events.subscribe((event) => {
+      if (event.type !== "write accepted") {
+        return;
+      }
+      for (const promise of [theme.flush(), silo.flush()]) {
+        barriers.push(promise);
+        promise.then(settled, settled);
+      }
+    });
+
+    if (operation === "set") {
+      theme.set("newer");
+    }
+    if (operation === "remove") {
+      theme.remove();
+    }
+    await macrotask();
+
+    expect(barriers).toHaveLength(2);
+    expect(settled).not.toHaveBeenCalled();
+    const write = mock.calls.find((call) => call.operation === operation);
+    expect(write?.pending).toBe(true);
+
+    if (outcome === "durable") {
+      write?.settle();
+      await Promise.all(barriers);
+      expect(mock.store.get("silo:theme")).toBe(
+        operation === "set" ? "newer" : undefined,
+      );
+    }
+    if (outcome === "refused") {
+      const failure = new Error("quota");
+      write?.fail(failure);
+      await Promise.all(
+        barriers.map((promise) => expect(promise).rejects.toBe(failure)),
+      );
+      expect(mock.store.get("silo:theme")).toBe("stored");
+    }
+    silo.dispose();
+  },
+);
+
+test("release from write acceptance waits for persistence before detaching the scope", async () => {
+  const mock = createMockAdapter({ mode: "async", hold: true });
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+  });
+  const scope = silo.scope("account");
+  const theme = scope.value("theme");
+  mock.calls[0]?.settle();
+  await theme.hydrated();
+  const released = vi.fn();
+  const releases: Promise<void>[] = [];
+  silo.diagnostics.events.subscribe((event) => {
+    if (event.type !== "write accepted") {
+      return;
+    }
+    const release = scope.release();
+    releases.push(release);
+    release.then(released);
+  });
+
+  theme.set("newer");
+  await macrotask();
+
+  expect(releases).toHaveLength(1);
+  expect(released).not.toHaveBeenCalled();
+  expect(silo.diagnostics.get().records).toHaveLength(1);
+  mock.calls.find((call) => call.operation === "set")?.settle();
+  await Promise.all(releases);
+
+  expect(mock.store.get("silo:account:theme")).toBe("newer");
+  expect(theme.get()).toBe("newer");
+  expect(silo.diagnostics.get().records).toEqual([]);
+  silo.dispose();
+});
+
+test("a queue closed by migration failure reports refusal without announcing acceptance", async () => {
+  const mock = createMockAdapter();
+  const failure = new Error("migration failed");
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+    migrations: {
+      1: () => {
+        throw failure;
+      },
+    },
+  });
+  await expect(silo.ready()).rejects.toBe(failure);
+  const theme = silo.value("theme");
+  const events: SiloDiagnosticEvent[] = [];
+  record(silo, events);
+
+  theme.set("newer");
+
+  await expect(theme.flush()).rejects.toBe(failure);
+  expect(types(events)).toEqual(["write refused"]);
+  expect(theme.get()).toBe("newer");
+  expect(theme.status.get()).toEqual({
+    state: "error",
+    error: { phase: "write", cause: failure },
+  });
+  expect(mock.calls.some((call) => call.operation === "set")).toBe(false);
+  silo.dispose();
+});
+
+test.each(["sync", "async"])(
+  "a write from a diagnostics listener supersedes the interrupted write (%s)",
+  async (mode) => {
+    const mock =
+      mode === "async" ? createMockAdapter({ mode }) : createMockAdapter();
+    const silo = new Silo({
+      storages: { default: { adapters: [mock.adapter], schema } },
+    });
+    const theme = silo.value("theme");
+    await theme.hydrated();
+    const stop = silo.diagnostics.events.subscribe((event) => {
+      if (event.type !== "write accepted") {
+        return;
+      }
+      stop();
+      theme.set("newer");
+    });
+
+    theme.set("older");
+    await theme.flush();
+
+    expect(theme.get()).toBe("newer");
+    expect(mock.store.get("silo:theme")).toBe("newer");
+    silo.dispose();
+  },
+);
