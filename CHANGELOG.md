@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- Add an Expo example with scoped drafts, user preferences, SecureStore, and cache release.
+- Put the browser notebook first, improve phone navigation and recovery controls, and confirm notebook deletion.
+
+- Infer schema and codec value types independently from fallbacks, preserving enum types and rejecting incompatible fallbacks.
+- Use Zod schemas in the quickstarts and Fieldbook example, with inferred types and coercion for URL numbers.
+- Check every adapter candidate, including the final one. Failed synchronous probes, native access, and observer setup try the next candidate; exhaustion reports all causes.
+- Add `value.reload()` to retry reads without replacing handles, with pending-write protection and cancellation on scope release or disposal.
+- Report external parse and notification failures through status and diagnostics while retaining the current value. Value errors now include the `read` phase.
+- Add a complete multiworkspace and user-key recipe and use PascalCase schema constants throughout the examples.
+
+## Unreleased
+
+- Docs: shorter setup guides, workspace and draft examples, explicit migration retry and adapter-selection limits, and a backend test-coverage matrix. Regression tests cover failed migration checkpoints and asynchronous failures after selection.
+- Core: optional per-storage `keys: { encode, decode }` preserves existing physical keys. Migrations translate keys in both directions, and scope release uses logical scope membership.
+- React, Vue, Solid, Svelte: `useValue` and `useValueStatus` accept explicit value handles without a provider or registration. Reactive inputs retarget subscriptions; missing handles are rejected.
+
 ## @priemskiyyy/silo 0.1.0 - 2026-09-17
 
 - First release. `Silo` takes named `storages`, each a schema of `value` entries and an ordered candidate list of adapters. The first candidate whose `available()` passes at construction is kept for the store's life, the last is taken regardless, and the rest are disposed, so a list ending in `memory()` always constructs. Keys of the default storage are addressed bare, keys of every other storage as `storage.key`, and the same key may live in several storages.
