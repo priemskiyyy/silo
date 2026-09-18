@@ -1,5 +1,5 @@
 ---
-description: "Run Fieldbook, the Silo showcase: one React store over eight storages, a REST server in the page, a Lab that breaks storage on purpose, and the devtools."
+description: "Try Silo in a browser notebook or an Expo app: scoped drafts, global and user preferences, storage recovery, and device SecureStore."
 ---
 
 <script setup>
@@ -10,18 +10,21 @@ import { withBase } from "vitepress";
 
 # Examples
 
-The repository ships Fieldbook, a field notebook for expeditions and the
-showcase for every core guarantee: one store, eight places to keep things, a
-server that lives in the page, and a Lab that breaks them on purpose so the
-behavior is visible on screen. It is a React application; examples for the
-other bindings are not shipped yet.
+Two runnable applications use Silo without a backend or credentials:
+
+| Example                           | What to try                                                           |
+| --------------------------------- | --------------------------------------------------------------------- |
+| Browser Fieldbook                 | Notebook entries, eight storage backends, failed writes, and devtools |
+| [Expo Fieldbook](#expo-fieldbook) | Device persistence, workspace and user scopes, and SecureStore        |
+
+Vue, Solid, and Svelte have setup examples in their binding guides.
 
 ## Open the live demo
 
 The example is hosted at <a :href="withBase('/demo/')" target="_blank" rel="noreferrer">priemskiyyy.github.io/silo/demo</a>
-with no backend, account, or credentials. Pick a storage, type a note, reload,
-open a second tab, then open the Silo Devtools launcher in the corner and watch
-the records, writes and migrations that produced what you see.
+with no backend, account, or credentials. Start by adding a notebook entry, then
+switch notebooks or reload. The storage playground, recovery controls, and
+inspector explain what happens underneath.
 
 ## Run it without credentials
 
@@ -36,33 +39,25 @@ pnpm --filter example-react-web dev
 Use Node 22.18 or newer and the pnpm version declared in `package.json`. The
 source is in `examples/react-web`.
 
-## The four steps
+## Explore the browser app
 
-The page is a tour, top to bottom, with a numbered nav in the sticky header.
+The navigation works on phones and desktops without changing the URL values.
 
-1. **Pick a place.** The same `note` and `count` keys are declared in eight
-   storages, and the core keeps eight distinct values. Pick a chip, type,
-   count, then reload or open a second tab. The facts beside the field say what
-   to expect, and "Compare all eight" opens the whole matrix.
-2. **A real notebook on top.** Entries live in IndexedDB under a notebook scope
-   such as `notebooks:alpine`, the composer in `sessionStorage`, the supplies
-   as a `Map`, and the look in `localStorage` next to a cookie. Switching
-   notebooks swaps the keyspace; "Clear this notebook" removes only that one.
-   The theme control is the page's one: `index.html` reads the raw value before
-   React runs, so a warm start paints the right scheme on its first frame.
-3. **Break things.** The Lab rebuilds the store without `localStorage`, slows
-   IndexedDB down, refuses a write, corrupts a raw value, and plants version 1
-   data for the migration to rename. The Server card beside it is the Remote
-   storage's other half: its latency, a 503 on demand, and the http adapter's
-   requests as they arrive.
-4. **Look inside.** What the devtools launcher in the corner opens, and what to
-   look for once you have broken something.
+1. **Notebook.** Add entries, write a longer draft, and choose preferences.
+   Entries and supplies belong to the selected notebook. Clearing a notebook
+   requires confirmation and reports whether removal succeeded.
+2. **Storages.** Store a note and count in different backends. Reload or open a
+   second tab to compare behavior. Expand the comparison table for details.
+3. **Recovery.** Simulate unavailable storage, delayed reads, or a failed write.
+   Each control explains what it changes. The server card shows requests made
+   by the simulated remote adapter.
+4. **Inspect.** Open the devtools launcher to inspect values and the event timeline.
 
 ## The eight storages
 
 | Storage                | Adapters                                 | Keys                                            | Why                                                                                                   |
 | ---------------------- | ---------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `memory`               | memory                                   | note, count                                     | The floor every other list falls back to. Gone on reload.                                             |
+| `memory`               | memory                                   | note, count                                     | Session-only fallback; data is lost on reload.                                                        |
 | `default` (Local)      | localStorage, memory                     | note, count, theme, density, visits, quietUntil | Synchronous, so the look is right on the first frame.                                                 |
 | `session`              | sessionStorage, memory                   | note, count, composer, selectedEntry            | This tab only: a second tab starts empty.                                                             |
 | `journal` (IndexedDB)  | IndexedDB, memory                        | note, count, entries, supplies                  | Structured clone: an entry's `Date` and `Set`, and the supplies `Map`, come back as themselves.       |
@@ -88,7 +83,7 @@ twelve requests newest first.
 The Remote storage wraps `http({ url: server.url, fetch: server.fetch })` in
 `simulcast({ channel, publish })`: `channel` is a simulcast channel over
 `broadcastChannel()`, and `publish` is `server.announce`, which posts each
-landed write on the same `BroadcastChannel`. The other tabs receive it through
+completed write on the same `BroadcastChannel`. The other tabs receive it through
 the bridge's `observe`, so a remote value is live without polling.
 
 ## What to explore
@@ -97,7 +92,7 @@ the bridge's `observe`, so a remote value is live without polling.
    address bar, and a value you edit by hand into something the Zod schema
    rejects reads as the fallback with a hydrate error on its status.
 2. **Open two tabs on Remote.** Type in one; the other updates through the
-   bridge, and the Server card lists the `PUT` that landed.
+   bridge, and the Server card lists the completed `PUT`.
 3. **Refuse a write in the Lab.** The snapshot keeps the optimistic value, the
    status reports `{ phase: "write" }`, and the devtools timeline shows the
    refusal against the record.
@@ -111,17 +106,21 @@ the bridge's `observe`, so a remote value is live without polling.
 
 ## Learn from the source
 
-| Concern                              | Implementation                                            |
-| ------------------------------------ | --------------------------------------------------------- |
-| Storages, schema and the migration   | `src/silo/createFieldbookSilo.ts`                         |
-| Plain text in the URL, integer codec | `src/silo/plainTextFormat.ts`, `src/silo/integerCodec.ts` |
-| The in-page REST server              | `src/silo/server/createFakeServer.ts`                     |
-| The realtime channel                 | `src/silo/realtime.ts`                                    |
-| Faults, latency and refusals         | `src/silo/adapters/`                                      |
-| Components and the four steps        | `src/components/`                                         |
-| Pre-paint theme                      | `index.html`                                              |
+| Concern                               | Implementation                        |
+| ------------------------------------- | ------------------------------------- |
+| Storages, schema and the migration    | `src/silo/createFieldbookSilo.ts`     |
+| Plain text in the URL                 | `src/silo/plainTextFormat.ts`         |
+| Journal shape and inferred entry type | `src/silo/Entry.ts`                   |
+| The in-page REST server               | `src/silo/server/createFakeServer.ts` |
+| The realtime channel                  | `src/silo/realtime.ts`                |
+| Faults, latency and refusals          | `src/silo/adapters/`                  |
+| Components and the four steps         | `src/components/`                     |
+| Pre-paint theme                       | `index.html`                          |
 
-The example uses Zod schemas as Standard Schema validators, exhaustive matching
+Stored preferences and journal entries use Zod schemas for validation and type
+inference. URL counts use `z.coerce.number().int()` to read text as numbers.
+
+The example uses exhaustive matching
 with ts-pattern, CVA variants, `clsx` class composition, and Tailwind.
 
 ## Check the example
@@ -134,3 +133,36 @@ This builds the packages and the example and runs the Playwright spec in
 `examples/fieldbook.spec.ts` against the built app at phone and desktop widths,
 including the pre-paint theme, the remote round trip across two pages, and the
 devtools listing a refused write.
+
+## Expo Fieldbook
+
+The Expo app uses AsyncStorage for notes and preferences, and Expo SecureStore
+for a per-user demo token on iOS and Android. Its web preview uses memory for
+the token and says so on screen.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm build
+pnpm --filter example-expo dev
+```
+
+Open it in Expo Go for SDK 57, or run `pnpm --filter example-expo ios`, `android`,
+or `web`. Native shortcuts require a simulator or emulator.
+
+The app demonstrates four scopes in one store:
+
+| Value                   | Scope                          |
+| ----------------------- | ------------------------------ |
+| Theme                   | Global                         |
+| Draft                   | Workspace                      |
+| Language and demo token | User, shared across workspaces |
+| Pinned workspace        | User within a workspace        |
+
+Switch between workspaces and demo users, save a draft, and restart. The
+**Storage** screen also demonstrates `scope.release()`: it frees cached values
+while keeping saved data. The next visit hydrates fresh handles.
+
+Source and setup details are in
+[the Expo README](https://github.com/priemskiyyy/silo/tree/main/examples/expo).
+The identities are local examples, not authentication. The browser tests cover
+the web preview; validate SecureStore on a device before relying on it in an app.
