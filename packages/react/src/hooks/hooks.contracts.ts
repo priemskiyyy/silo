@@ -4,6 +4,7 @@ import { Silo, value } from "@priemskiyyy/silo";
 import type {
   SiloScope,
   SiloStatus,
+  SiloValue,
   Storages,
   ValueStatus,
 } from "@priemskiyyy/silo";
@@ -63,5 +64,26 @@ export const useTypeContracts = () => {
   });
   useSiloStatus((status) => {
     expectTypeOf(status).toEqualTypeOf<SiloStatus>();
+  });
+};
+
+export const useHandleContracts = (
+  handle: SiloValue<number>,
+  optional: SiloValue<number> | undefined,
+) => {
+  const [snapshot, setSnapshot] = useValue(handle);
+  expectTypeOf(snapshot).toEqualTypeOf<number>();
+  setSnapshot((previous) => previous + 1);
+  useValue(handle, (next) => {
+    expectTypeOf(next).toEqualTypeOf<number>();
+  });
+  useValueStatus(handle);
+  // @ts-expect-error handle setters preserve their value type without registration
+  setSnapshot("wrong");
+  // @ts-expect-error an unavailable handle must be guarded before binding
+  useValue(optional);
+  // @ts-expect-error callbacks must accept the handle's value type
+  useValue(handle, (next: string) => {
+    expectTypeOf(next).toEqualTypeOf<string>();
   });
 };

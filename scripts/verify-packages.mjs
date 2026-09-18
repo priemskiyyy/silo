@@ -421,7 +421,7 @@ wantsSync(sessionStorage());
     "react-contracts.tsx",
     `import { Silo, value } from "@priemskiyyy/silo";
 import type { Dispatch, SetStateAction } from "react";
-import type { SiloScope, SiloStatus, ValueStatus } from "@priemskiyyy/silo";
+import type { SiloScope, SiloValue, SiloStatus, ValueStatus } from "@priemskiyyy/silo";
 import { localStorage } from "@priemskiyyy/silo-local-storage";
 import {
   SiloProvider,
@@ -460,7 +460,14 @@ declare module "@priemskiyyy/silo-react" {
 // keys are narrowed to the registered schema
 expectType<Equal<RegisteredKey, "theme" | "user" | "count" | "callback">>(true);
 
+declare const independentHandle: SiloValue<Date>;
 const Probe = () => {
+  const [timestamp, setTimestamp] = useValue(independentHandle);
+  expectType<Equal<typeof timestamp, Date>>(true);
+  setTimestamp((previous) => new Date(previous.getTime() + 1));
+  useValueStatus(independentHandle);
+  // @ts-expect-error explicit handles keep their own types beside a registered schema
+  setTimestamp("invalid");
   // a defaulted key reads with no \`| undefined\`
   const [theme, setTheme] = useValue("theme");
   expectType<Equal<typeof theme, Theme>>(true);

@@ -64,6 +64,84 @@ const reads = (mock: {
 
 afterEach(cleanup);
 
+test("explicit handles mix root, workspace and user scopes independently of the provider", () => {
+  const { silo, mock } = syncHarness();
+  const workspace = silo.scope("workspaces:7");
+  const user = workspace.scope("users:2");
+  const { result } = renderHook(
+    () => ({
+      root: useValue(silo.value("count")),
+      workspace: useValue(workspace.value("count")),
+      user: useValue(user.value("count")),
+      status: useValueStatus(user.value("count")),
+    }),
+    { wrapper: wrapperFor(silo, { current: "unrelated" }) },
+  );
+  act(() => {
+    result.current.root[1](1);
+    result.current.workspace[1]((previous) => previous + 2);
+    result.current.user[1]((previous) => previous + 3);
+  });
+  expect([
+    result.current.root[0],
+    result.current.workspace[0],
+    result.current.user[0],
+  ]).toEqual([1, 2, 3]);
+  expect(result.current.status.state).toBe("ready");
+  expect(mock.store.get("silo:count")).toBe(1);
+  expect(mock.store.get("silo:workspaces:7:count")).toBe(2);
+  expect(mock.store.get("silo:workspaces:7:users:2:count")).toBe(3);
+  expect(mock.store.has("silo:unrelated:count")).toBe(false);
+  silo.dispose();
+});
+
+test("handles work without a provider and retarget subscriptions, setters and status", () => {
+  const { silo } = syncHarness();
+  const first = silo.scope("a").value("count");
+  const second = silo.scope("b").value("count");
+  second.set(5);
+  const changed = vi.fn();
+  const { result, rerender, unmount } = renderHook(
+    ({ handle }) => ({
+      value: useValue(handle, changed),
+      status: useValueStatus(handle),
+    }),
+    { initialProps: { handle: first } },
+  );
+  act(() => result.current.value[1]((previous) => previous + 1));
+  expect(changed).toHaveBeenLastCalledWith(1);
+  rerender({ handle: second });
+  expect(result.current.value[0]).toBe(5);
+  changed.mockClear();
+  act(() => first.set(2));
+  expect(changed).not.toHaveBeenCalled();
+  expect(result.current.value[0]).toBe(5);
+  act(() => result.current.value[1]((previous) => previous + 1));
+  expect(second.get()).toBe(6);
+  expect(result.current.status.state).toBe("ready");
+  unmount();
+  changed.mockClear();
+  second.set(7);
+  expect(changed).not.toHaveBeenCalled();
+  silo.dispose();
+});
+
+test("a missing explicit source never acquires a value in the provider's root", () => {
+  const { silo, mock, wrapper } = syncHarness();
+  expect(() =>
+    renderHook(() => Reflect.apply(useValue, undefined, [undefined]), {
+      wrapper,
+    }),
+  ).toThrow("A Silo value handle or key is required");
+  expect(() =>
+    renderHook(() => Reflect.apply(useValueStatus, undefined, [undefined]), {
+      wrapper,
+    }),
+  ).toThrow("A Silo value handle or key is required");
+  expect(mock.calls).toEqual([]);
+  silo.dispose();
+});
+
 describe("provider", () => {
   test("requires an explicit provider", () => {
     expect(() => renderHook(() => useValue("theme"))).toThrow(

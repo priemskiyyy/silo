@@ -40,7 +40,7 @@ they are, and the tests beside the file you touch.
 - Style carve-outs, each with a comment saying why, and nothing wider than
   these: `function` overloads wherever a pair is the only way to resolve a
   type parameter from the presence or shape of an option (`value`,
-  `createMockAdapter`, `createTextStorageAdapter`, the internal `typedValue`
+  `createMockAdapter`, `createTextStorageAdapter`, framework `useValue`, the internal `typedValue`
   bridge in `SiloValues`); method syntax on `Codec`, `ValueDefinition` and
   the adapter shapes, because bivariant method parameters are what make
   `ValueDefinition<unknown>` a usable supertype for the `SiloSchema`

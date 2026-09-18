@@ -9,7 +9,7 @@ export type SiloProviderProps = PropsWithChildren<{
   /**
    * The scope every value hook below reads under, such as `users:7`. Changing
    * it re-points them at another keyspace; omitted or `undefined`, they read
-   * the root scope, so a value that is only sometimes known can be passed as is.
+   * the root scope. Wait for a required ID before mounting scoped consumers.
    */
   scope?: string | undefined;
 }>;

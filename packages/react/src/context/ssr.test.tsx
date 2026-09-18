@@ -14,6 +14,26 @@ const Schema = {
   theme: value<"light" | "dark">({ fallback: "light" }),
 };
 
+test("SSR accepts a scoped handle without a provider or subscriptions", () => {
+  const mock = createMockAdapter();
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
+  });
+  const handle = silo.scope("workspaces:7").value("theme");
+  const subscribe = vi.spyOn(handle, "subscribe");
+  const View = () => {
+    const [theme] = useValue(handle);
+    const status = useValueStatus(handle);
+    return <span>{`${theme}/${status.state}`}</span>;
+  };
+  expect(renderToString(<View />)).toContain("light/hydrating");
+  expect(subscribe).not.toHaveBeenCalled();
+  expect(mock.calls.map((call) => [call.operation, call.key])).toEqual([
+    ["get", "silo:workspaces:7:theme"],
+  ]);
+  silo.dispose();
+});
+
 test("SSR renders the fallback, writes nothing, and hydrates without a mismatch", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "dark");

@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from "react";
+import type { SiloValue } from "@priemskiyyy/silo";
+import { useCallback, useContext, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useObservableValue } from "src/hooks/internal/useObservableValue";
-import { useScope } from "src/hooks/useScope";
+import { SiloContext } from "src/context/SiloContext";
 import type { RegisteredKey, RegisteredValue } from "src/types/Register";
 
 const isUpdater = <TValue>(
@@ -19,6 +20,7 @@ const isUpdater = <TValue>(
  * which is also what a hydrating client renders; gate on `useValueStatus` when
  * that first frame matters.
  *
+ * Pass a value handle to choose a scope explicitly without a provider.
  * @example
  * ```ts
  * const [theme, setTheme] = useValue("theme");
@@ -26,12 +28,32 @@ const isUpdater = <TValue>(
  * return <button onClick={() => setTheme((previous) => previous === "dark" ? "light" : "dark")}>{theme}</button>;
  * ```
  */
-export const useValue = <TKey extends RegisteredKey>(
-  key: TKey,
+// Overloads infer the value from a handle or from the registered schema key.
+export function useValue<TValue>(
+  source: SiloValue<TValue>,
+  onChange?: (value: TValue) => void | Promise<unknown>,
+): [TValue, Dispatch<SetStateAction<TValue>>];
+export function useValue<TKey extends RegisteredKey>(
+  source: TKey,
   onChange?: (value: RegisteredValue<TKey>) => void | Promise<unknown>,
-): [RegisteredValue<TKey>, Dispatch<SetStateAction<RegisteredValue<TKey>>>] => {
-  const scope = useScope();
-  const value = useMemo(() => scope.value(key), [scope, key]);
+): [RegisteredValue<TKey>, Dispatch<SetStateAction<RegisteredValue<TKey>>>];
+export function useValue<TKey extends RegisteredKey>(
+  source: TKey | SiloValue<RegisteredValue<TKey>>,
+  onChange?: (value: RegisteredValue<TKey>) => void | Promise<unknown>,
+): [RegisteredValue<TKey>, Dispatch<SetStateAction<RegisteredValue<TKey>>>] {
+  const context = useContext(SiloContext);
+  const value = useMemo(() => {
+    if (source === undefined || source === null) {
+      throw new Error("A Silo value handle or key is required.");
+    }
+    if (typeof source !== "string") {
+      return source;
+    }
+    if (context === undefined) {
+      throw new Error("Silo hooks must be used within a SiloProvider.");
+    }
+    return context.scope.value(source);
+  }, [context, source]);
   const snapshot = useObservableValue(value, value.get, onChange);
   const setValue: Dispatch<SetStateAction<RegisteredValue<TKey>>> = useCallback(
     (next) => {
@@ -46,4 +68,4 @@ export const useValue = <TKey extends RegisteredKey>(
   );
 
   return [snapshot, setValue];
-};
+}

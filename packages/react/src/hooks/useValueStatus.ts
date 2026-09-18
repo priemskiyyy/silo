@@ -1,7 +1,7 @@
-import { useMemo } from "react";
-import type { ValueStatus } from "@priemskiyyy/silo";
+import { useContext, useMemo } from "react";
+import type { SiloValue, ValueStatus } from "@priemskiyyy/silo";
 import { useObservableValue } from "src/hooks/internal/useObservableValue";
-import { useScope } from "src/hooks/useScope";
+import { SiloContext } from "src/context/SiloContext";
 import type { RegisteredKey } from "src/types/Register";
 
 // Interned so every call hands React the same reference, the way the core
@@ -23,12 +23,21 @@ const getServerValueStatus = () => HYDRATING_VALUE_STATUS;
  * ```
  */
 export const useValueStatus = (
-  key: RegisteredKey,
+  source: RegisteredKey | Pick<SiloValue<unknown>, "status">,
   onChange?: (status: ValueStatus) => void | Promise<unknown>,
-): ValueStatus => {
-  const scope = useScope();
-
-  const status = useMemo(() => scope.value(key).status, [scope, key]);
-
+) => {
+  const context = useContext(SiloContext);
+  const status = useMemo(() => {
+    if (source === undefined || source === null) {
+      throw new Error("A Silo value handle or key is required.");
+    }
+    if (typeof source !== "string") {
+      return source.status;
+    }
+    if (context === undefined) {
+      throw new Error("Silo hooks must be used within a SiloProvider.");
+    }
+    return context.scope.value(source).status;
+  }, [context, source]);
   return useObservableValue(status, getServerValueStatus, onChange);
 };
