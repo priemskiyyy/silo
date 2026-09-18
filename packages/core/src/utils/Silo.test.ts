@@ -923,5 +923,10 @@ test("a pending step on a mixed set still runs asynchronously behind the gate", 
   await silo.ready();
   expect(silo.value("theme").get()).toBe("migrated");
   expect(local.store.get("silo::version")).toBe(2);
+  expect(
+    local.calls.filter(
+      (call) => call.operation === "get" && call.key === "silo::version",
+    ),
+  ).toHaveLength(1);
   silo.dispose();
 });

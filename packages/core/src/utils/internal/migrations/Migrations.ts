@@ -64,9 +64,9 @@ export class Migrations {
       this.#handleDone();
       return;
     }
-    this.#version.declared = Math.max(...Object.keys(migrations).map(Number));
     if (usesSynchronousMigrations(migrations, backends)) {
       const steps = declaredSteps(migrations);
+      this.#version.declared = steps.at(-1)?.version ?? 0;
       try {
         this.#runSync(steps);
         this.#handleDone();
@@ -76,10 +76,11 @@ export class Migrations {
       return;
     }
     const steps = declaredSteps(migrations);
-    // A synchronous default storage can say in this frame whether anything
-    // is pending; when nothing is, the gate opens now and the synchronous
-    // storages keep their first frame instead of waiting on a promise.
+    this.#version.declared = steps.at(-1)?.version ?? 0;
     const { adapter } = backends.default;
+    let version: number | undefined;
+
+    // A current synchronous default storage can open the gate in this frame.
     if (adapter.mode === "sync") {
       let raw: unknown;
       try {
@@ -88,14 +89,14 @@ export class Migrations {
         this.#handleError(error);
         return;
       }
-      const version = typeof raw === "number" ? raw : 0;
+      version = typeof raw === "number" ? raw : 0;
       this.#storedVersion(version);
-      if (steps.every((step) => step.version <= version)) {
+      if (this.#version.declared <= version) {
         this.#handleDone();
         return;
       }
     }
-    this.#runAsync(steps).then(this.#handleDone, this.#handleError);
+    this.#runAsync(steps, version).then(this.#handleDone, this.#handleError);
   };
 
   admit = (admission: {
@@ -153,7 +154,7 @@ export class Migrations {
     }
   }
 
-  #runSync = (steps: ReturnType<typeof declaredSteps<SyncMigration>>) => {
+  #runSync(steps: ReturnType<typeof declaredSteps<SyncMigration>>) {
     const options = this.#options;
     const { adapter } = options.backends.default;
     const store = new MigrationStore({
@@ -167,8 +168,8 @@ export class Migrations {
       if (step.version <= version) {
         continue;
       }
-      this.#assertActive();
       this.#trace("migration step", () => ({ version: step.version }));
+      this.#assertActive();
       this.#assertSynchronous(step.run(store), `migration ${step.version}`);
       this.#assertActive();
       this.#assertSynchronous(
@@ -177,32 +178,34 @@ export class Migrations {
       );
       this.#storedVersion(step.version);
     }
-  };
+  }
 
-  #runAsync = async (
+  async #runAsync(
     steps: ReturnType<typeof declaredSteps<AsyncMigration>>,
-  ) => {
+    stored: number | undefined,
+  ) {
     const options = this.#options;
     const { adapter } = options.backends.default;
     const store = new MigrationStore({
       ...options,
       assertActive: this.#assertActive,
     }).asynchronous();
-    const raw = await adapter.get(options.keyspaces.default.version);
+    const raw = await (stored ??
+      adapter.get(options.keyspaces.default.version));
     const version = typeof raw === "number" ? raw : 0;
     this.#storedVersion(version);
     for (const step of steps) {
       if (step.version <= version) {
         continue;
       }
-      this.#assertActive();
       this.#trace("migration step", () => ({ version: step.version }));
+      this.#assertActive();
       await step.run(store);
       this.#assertActive();
       await adapter.set(options.keyspaces.default.version, step.version);
       this.#storedVersion(step.version);
     }
-  };
+  }
 
   #assertSynchronous = (result: void | Promise<void>, name: string) => {
     if (!result || typeof result.then !== "function") {
@@ -235,11 +238,14 @@ export class Migrations {
     this.#trace("migration failed", () => ({ cause }));
   };
 
-  #storedVersion = (version: number) => {
+  #storedVersion(version: number) {
+    if (this.#version.stored === version) {
+      return;
+    }
     this.#version.stored = version;
     this.#options.diagnostics.changed();
     this.#trace("migration version", () => ({ version }));
-  };
+  }
 
   #trace = (type: string, context: () => unknown) => {
     const { diagnostics } = this.#options;

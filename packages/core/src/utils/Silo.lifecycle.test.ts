@@ -106,6 +106,37 @@ test("disposing during migrations rejects ready and stops later migration steps"
   expect(notified).not.toHaveBeenCalled();
 });
 
+test("an async version read that throws still reports failure asynchronously", async () => {
+  const mock = createMockAdapter({ mode: "async" });
+  const failure = new Error("version unavailable");
+  const migrate = vi.fn();
+  const silo = new Silo({
+    storages: {
+      default: {
+        adapters: [
+          {
+            ...mock.adapter,
+            get: () => {
+              throw failure;
+            },
+          },
+        ],
+        schema: {},
+      },
+    },
+    migrations: { 1: migrate },
+  });
+
+  expect(silo.status.get()).toEqual({ state: "migrating" });
+  await expect(silo.ready()).rejects.toBe(failure);
+  expect(silo.status.get()).toEqual({
+    state: "error",
+    error: { phase: "migrate", cause: failure },
+  });
+  expect(migrate).not.toHaveBeenCalled();
+  silo.dispose();
+});
+
 test("a failed availability probe releases selected, unvisited, and rejected candidates", () => {
   const first = createMockAdapter();
   const second = createMockAdapter();

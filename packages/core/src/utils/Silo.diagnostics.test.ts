@@ -370,6 +370,24 @@ test("an asynchronous chain reports live", async () => {
   silo.dispose();
 });
 
+test("disposal from a migration event prevents the announced step from running", async () => {
+  const mock = createMockAdapter({ mode: "async" });
+  const migrate = vi.fn();
+  const silo = new Silo({
+    storages: { default: { adapters: [mock.adapter], schema } },
+    migrations: { 1: migrate },
+  });
+  silo.diagnostics.events.subscribe((event) => {
+    if (event.type === "migration step") {
+      silo.dispose();
+    }
+  });
+
+  await expect(silo.ready()).rejects.toThrow("disposed");
+  expect(migrate).not.toHaveBeenCalled();
+  expect(mock.store.has("silo::version")).toBe(false);
+});
+
 test.each(["silo:theme", null])(
   "keyed changes and reloads report the same acceptance decisions (key: %s)",
   (key) => {
