@@ -57,24 +57,28 @@ test("release covers a scope's physical aliases and descendants across storages"
   silo.dispose();
 });
 
-test("root release leaves storage alive and an unused scope creates no demand", async () => {
-  const mock = createMockAdapter();
-  const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
-  });
-  await silo.scope("unused").release();
-  expect(mock.calls).toEqual([]);
-  silo.value("count").set(5);
-  silo.scope("account").value("count").set(6);
-  await silo.release();
-  await silo.release();
-  expect(silo.diagnostics.get().records).toEqual([]);
-  expect(mock.store.size).toBe(2);
-  expect(silo.value("count").get()).toBe(5);
-  silo.dispose();
-  await expect(silo.release()).rejects.toThrow("disposed");
-  await expect(silo.flush()).rejects.toThrow("disposed");
-});
+test.each(["silo", ""])(
+  "root release leaves storage alive without creating demand (namespace: %j)",
+  async (namespace) => {
+    const mock = createMockAdapter();
+    const silo = new Silo({
+      namespace,
+      storages: { default: { adapters: [mock.adapter], schema } },
+    });
+    await silo.scope("unused").release();
+    expect(mock.calls).toEqual([]);
+    silo.value("count").set(5);
+    silo.scope("account").value("count").set(6);
+    await silo.release();
+    await silo.release();
+    expect(silo.diagnostics.get().records).toEqual([]);
+    expect(mock.store.size).toBe(2);
+    expect(silo.value("count").get()).toBe(5);
+    silo.dispose();
+    await expect(silo.release()).rejects.toThrow("disposed");
+    await expect(silo.flush()).rejects.toThrow("disposed");
+  },
+);
 
 test("release waits for writes accepted while an earlier barrier settles", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });

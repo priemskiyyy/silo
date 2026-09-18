@@ -9,7 +9,7 @@ import type { ValueDefinition } from "src/types/ValueDefinition";
 import { DEFAULT_STORAGE, PATH_SEPARATOR } from "src/utils/constants/keyspace";
 import type { Backend } from "src/utils/internal/adapter/Backend";
 import type { AcquiredStorages } from "src/utils/internal/adapter/AcquiredStorages";
-import type { Keyspace, Keyspaces } from "src/utils/internal/Keyspace";
+import type { Keyspace, createKeyspaces } from "src/utils/internal/Keyspace";
 import type { Diagnostics } from "src/utils/internal/Diagnostics";
 import type { Migrations } from "src/utils/internal/migrations/Migrations";
 import { ValueCodec } from "src/utils/internal/values/ValueCodec";
@@ -48,7 +48,7 @@ export class SiloValues<TStorages extends Storages> {
   }: {
     storages: TStorages;
     backends: AcquiredStorages["backends"];
-    keyspaces: Keyspaces;
+    keyspaces: ReturnType<typeof createKeyspaces>;
     now: () => number;
     admit: Migrations["admit"];
     diagnostics: Pick<Diagnostics, "changed" | "record" | "recording">;
@@ -201,8 +201,9 @@ export class SiloValues<TStorages extends Storages> {
       record: ValueRecord;
     }> = [];
     for (const backing of this.#backings.values()) {
+      const prefix = backing.keyspace.prefix(segments);
       for (const [key, record] of backing.records) {
-        if (!backing.keyspace.contains(segments, key)) {
+        if (!key.startsWith(prefix)) {
           continue;
         }
         selected.push({ backing, key, record });

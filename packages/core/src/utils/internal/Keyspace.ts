@@ -6,8 +6,6 @@ import {
   PATH_SEPARATOR,
 } from "src/utils/constants/keyspace";
 
-export type Keyspaces = { default: Keyspace; [name: string]: Keyspace };
-
 /**
  * Physical keys use `${namespace}:${...segments}:${key}`.
  * An empty namespace omits the prefix and its separator.
@@ -29,16 +27,16 @@ export class Keyspace {
     this.version = `${namespace}${KEY_SEPARATOR}${KEY_SEPARATOR}version`;
   }
 
-  physical = (segments: string[], key: string) => {
-    const physical = `${this.#prefix}${[...segments, key].join(KEY_SEPARATOR)}`;
+  physical(segments: string[], key: string) {
+    const physical = `${this.prefix(segments)}${key}`;
     if (physical === this.version) {
       throw new Error(`The key "${physical}" is reserved for Silo migrations.`);
     }
     return physical;
-  };
+  }
 
   /** Strips the prefix; excludes other namespaces and the version record. */
-  relative = (physical: string) => {
+  relative(physical: string) {
     if (physical === this.version) {
       return null;
     }
@@ -48,19 +46,13 @@ export class Keyspace {
     }
 
     return physical.slice(this.#prefix.length);
-  };
+  }
 
-  contains(segments: string[], physical: string) {
-    const relative = this.relative(physical);
-    if (relative === null) {
-      return false;
-    }
+  prefix(segments: string[]) {
     if (segments.length === 0) {
-      return true;
+      return this.#prefix;
     }
-    return relative.startsWith(
-      `${segments.join(KEY_SEPARATOR)}${KEY_SEPARATOR}`,
-    );
+    return `${this.#prefix}${segments.join(KEY_SEPARATOR)}${KEY_SEPARATOR}`;
   }
 
   static assertKey = (key: string) => {
@@ -92,7 +84,7 @@ export const createKeyspaces = ({
   storages: Storages;
   adapters: Record<string, { adapter: StorageAdapter }>;
   namespace?: string | undefined;
-}): Keyspaces => {
+}) => {
   const keyspaces = new Map<string, Keyspace>();
 
   for (const [name, storage] of Object.entries(storages)) {
@@ -107,10 +99,10 @@ export const createKeyspaces = ({
       throw new Error(`Silo chose no adapter for the storage "${name}".`);
     }
 
-    keyspaces.set(
-      name,
-      new Keyspace(resolveNamespace(storage, chosen.adapter, namespace)),
-    );
+    const resolvedNamespace =
+      storage.namespace ??
+      (chosen.adapter.keyspace?.namespace === "hidden" ? "" : namespace);
+    keyspaces.set(name, new Keyspace(resolvedNamespace));
     for (const key of Object.keys(storage.schema)) {
       Keyspace.assertKey(key);
     }
@@ -122,21 +114,5 @@ export const createKeyspaces = ({
     throw new Error("A Silo needs a default storage.");
   }
 
-  return { ...Object.fromEntries(keyspaces), default: primary };
-};
-
-const resolveNamespace = (
-  storage: Storages[string],
-  adapter: StorageAdapter,
-  namespace: string,
-) => {
-  if (storage.namespace !== undefined) {
-    return storage.namespace;
-  }
-
-  if (adapter.keyspace?.namespace === "hidden") {
-    return "";
-  }
-
-  return namespace;
+  return Object.assign(Object.fromEntries(keyspaces), { default: primary });
 };

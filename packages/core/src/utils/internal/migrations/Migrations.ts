@@ -11,13 +11,13 @@ import {
   READY_SILO_STATUS,
 } from "src/utils/constants/status";
 import type { AcquiredStorages } from "src/utils/internal/adapter/AcquiredStorages";
-import type { Keyspaces } from "src/utils/internal/Keyspace";
+import type { createKeyspaces } from "src/utils/internal/Keyspace";
 import type { Diagnostics } from "src/utils/internal/Diagnostics";
 import { MigrationStore } from "src/utils/internal/migrations/MigrationStore";
 
 type Options = {
   backends: AcquiredStorages["backends"];
-  keyspaces: Keyspaces;
+  keyspaces: ReturnType<typeof createKeyspaces>;
   migrations:
     Record<number, SyncMigration> | Record<number, AsyncMigration> | undefined;
   diagnostics: Pick<Diagnostics, "changed" | "record" | "recording">;

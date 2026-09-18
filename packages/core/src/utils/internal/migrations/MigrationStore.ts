@@ -4,7 +4,7 @@ import type { SyncMigrationStore } from "src/types/SyncMigrationStore";
 import { assertUnreachable } from "src/utils/common/assertUnreachable";
 import { DEFAULT_STORAGE } from "src/utils/constants/keyspace";
 import type { AcquiredStorages } from "src/utils/internal/adapter/AcquiredStorages";
-import type { Keyspaces } from "src/utils/internal/Keyspace";
+import type { createKeyspaces } from "src/utils/internal/Keyspace";
 
 /** Owns raw namespace access; typed views preserve each migration mode's return types. */
 export class MigrationStore {
@@ -12,7 +12,7 @@ export class MigrationStore {
 
   constructor(options: {
     backends: AcquiredStorages["backends"];
-    keyspaces: Keyspaces;
+    keyspaces: ReturnType<typeof createKeyspaces>;
     assertActive: () => void;
   }) {
     this.#options = options;
