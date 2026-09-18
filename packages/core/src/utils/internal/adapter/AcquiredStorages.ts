@@ -82,5 +82,5 @@ export class AcquiredStorages<TStorages extends Storages = Storages> {
     this.native = acquired.native as NativeOf<TStorages>;
   }
 
-  dispose = () => this.#lifetime.dispose();
+  dispose = this.#lifetime.dispose;
 }

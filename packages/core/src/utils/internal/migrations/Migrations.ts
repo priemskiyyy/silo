@@ -1,6 +1,7 @@
 import type { AsyncMigration } from "src/types/AsyncMigration";
 import type { ObservableValue } from "src/types/ObservableValue";
 import type { SiloStatus } from "src/types/SiloStatus";
+import type { SiloSnapshot } from "src/types/SiloSnapshot";
 import type { SyncMigration } from "src/types/SyncMigration";
 import { assertUnreachable } from "src/utils/common/assertUnreachable";
 import { deferred } from "src/utils/common/deferred";
@@ -15,14 +16,6 @@ import type { createKeyspaces } from "src/utils/internal/Keyspace";
 import type { Diagnostics } from "src/utils/internal/Diagnostics";
 import { MigrationStore } from "src/utils/internal/migrations/MigrationStore";
 
-type Options = {
-  backends: AcquiredStorages["backends"];
-  keyspaces: ReturnType<typeof createKeyspaces>;
-  migrations:
-    Record<number, SyncMigration> | Record<number, AsyncMigration> | undefined;
-  diagnostics: Pick<Diagnostics, "changed" | "record" | "recording">;
-};
-
 /** Runs migrations and gates reads and writes on their outcome. */
 export class Migrations {
   #options;
@@ -30,7 +23,7 @@ export class Migrations {
   #waiting = new Set<Parameters<Migrations["admit"]>[0]>();
   #lifecycle: "IDLE" | "STARTED" | "DISPOSED" = "IDLE";
   #status = new ValueStore<SiloStatus>(MIGRATING_SILO_STATUS);
-  #version: { declared: number; stored: number | null } = {
+  #version: SiloSnapshot["version"] = {
     declared: 0,
     stored: null,
   };
@@ -42,7 +35,11 @@ export class Migrations {
 
   ready = this.#settlement.promise;
 
-  constructor(options: Options) {
+  constructor(options: {
+    backends: AcquiredStorages["backends"];
+    keyspaces: ReturnType<typeof createKeyspaces>;
+    diagnostics: Pick<Diagnostics, "changed" | "record" | "recording">;
+  }) {
     this.#options = options;
     this.ready.then(
       () => this.#admitWaiting((admission) => admission.open()),
@@ -54,12 +51,17 @@ export class Migrations {
   /** The highest declared step, and the stored version once the chain has read it. */
   inspectVersion = () => ({ ...this.#version });
 
-  start = () => {
+  start(
+    migrations:
+      | Record<number, SyncMigration>
+      | Record<number, AsyncMigration>
+      | undefined,
+  ) {
     if (this.#lifecycle !== "IDLE") {
       return;
     }
     this.#lifecycle = "STARTED";
-    const { migrations, backends } = this.#options;
+    const { backends } = this.#options;
     if (migrations === undefined || Object.keys(migrations).length === 0) {
       this.#handleDone();
       return;
@@ -97,7 +99,7 @@ export class Migrations {
       }
     }
     this.#runAsync(steps, version).then(this.#handleDone, this.#handleError);
-  };
+  }
 
   admit = (admission: {
     open: () => void;
@@ -158,7 +160,8 @@ export class Migrations {
     const options = this.#options;
     const { adapter } = options.backends.default;
     const store = new MigrationStore({
-      ...options,
+      backends: options.backends,
+      keyspaces: options.keyspaces,
       assertActive: this.#assertActive,
     }).synchronous();
     const raw = adapter.get(options.keyspaces.default.version);
@@ -187,7 +190,8 @@ export class Migrations {
     const options = this.#options;
     const { adapter } = options.backends.default;
     const store = new MigrationStore({
-      ...options,
+      backends: options.backends,
+      keyspaces: options.keyspaces,
       assertActive: this.#assertActive,
     }).asynchronous();
     const raw = await (stored ??
@@ -270,8 +274,8 @@ export class Migrations {
 
 // SiloOptions ties callback types to candidate modes, which Backend preserves.
 const usesSynchronousMigrations = (
-  _migrations: NonNullable<Options["migrations"]>,
-  backends: Options["backends"],
+  _migrations: NonNullable<Parameters<Migrations["start"]>[0]>,
+  backends: AcquiredStorages["backends"],
 ): _migrations is Record<number, SyncMigration> =>
   Object.values(backends).every((backend) => backend.execution.mode === "sync");
 

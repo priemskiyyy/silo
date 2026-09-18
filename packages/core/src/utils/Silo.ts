@@ -65,7 +65,6 @@ export class Silo<TStorages extends Storages = Storages> {
       const migrations = new Migrations({
         backends,
         keyspaces,
-        migrations: options.migrations,
         diagnostics: this.#diagnostics,
       });
       this.#lifetime.add(migrations.dispose);
@@ -84,12 +83,13 @@ export class Silo<TStorages extends Storages = Storages> {
           continue;
         }
 
+        // Binding avoids retaining constructor options through an observer closure.
         this.#lifetime.add(
-          adapter.observe((change) => values.handleStorageChange(name, change)),
+          adapter.observe(values.handleStorageChange.bind(values, name)),
         );
       }
 
-      migrations.start();
+      migrations.start(options.migrations);
       return { native, migrations, values };
     });
 
