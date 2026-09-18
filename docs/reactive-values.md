@@ -4,9 +4,9 @@ description: "Silo values as external stores: get() returns the stored reference
 
 # Reactive values
 
-A value handle is two observables over one key: the **snapshot**, which is the
-value, and the **status**, which is its progress. Both are read synchronously
-and both notify with no payload.
+A value handle provides the current value through `get()` and loading or error
+state through `status.get()`. Subscribe to either independently; listeners read
+the latest snapshot when notified.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";
@@ -50,7 +50,8 @@ snapshot can never be delivered stale.
 | `set(value)` | Encodes, queues persistence, then commits the snapshot and status. Encoding errors throw. | no             |
 | `remove()`   | Resets the snapshot to the fallback and queues the deletion.                              | no             |
 | `status`     | An `ObservableValue<ValueStatus>` beside the snapshot.                                    | no             |
-| `hydrated()` | Resolves once the first read has landed. See [hydration](hydration-and-flush.md).         | no             |
+| `reload()`   | Reads storage again after pending writes; rejects on failure.                             | yes            |
+| `hydrated()` | Resolves once the first read has completed. See [hydration](hydration-and-flush.md).      | no             |
 | `flush()`    | Resolves once every accepted write reached the adapter.                                   | no             |
 
 The read happens earlier than any of them: `silo.value(key)` creates the
@@ -66,7 +67,7 @@ places is the same object with the same subscribers.
 ## One notification per change
 
 A mutation settles everything before it announces anything. `set()` encodes,
-takes a revision, hands the write to the queue, and then commits the value and
+takes a revision, submits the write to the queue, and then commits the value and
 the status together. The commit is the single notification. Two consequences
 worth relying on:
 
@@ -77,7 +78,7 @@ worth relying on:
 
 Changes from other sources arrive through the same path: a write in another
 tab that the adapter [observes](external-observation.md), an
-[expiry](ttl.md), a [hydration](hydration-and-flush.md) that lands. A local
+[expiry](ttl.md), a [hydration](hydration-and-flush.md) that completes. A local
 write always wins over an external change that arrives while it is in flight.
 
 A listener that throws does not break the notification. The error is rethrown
@@ -154,7 +155,10 @@ same bug.
 type ValueStatus =
   | { state: "hydrating" }
   | { state: "ready" }
-  | { state: "error"; error: { phase: "hydrate" | "write"; cause: unknown } };
+  | {
+      state: "error";
+      error: { phase: "hydrate" | "read" | "write"; cause: unknown };
+    };
 ```
 
 `value.status` is an `ObservableValue` with the same shape as the snapshot:

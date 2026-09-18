@@ -4,12 +4,12 @@ description: "Silo's two barriers: hydrated() waits for a key's first read, flus
 
 # Hydration and flush
 
-Reads are synchronous, so the only promises in Silo are barriers: points you
-wait at, not values you fetch. There are two per key.
+`get()` returns the current snapshot immediately. Use `hydrated()` to wait for
+the initial read, and `flush()` to wait for accepted writes.
 
 | Barrier      | Waits for                                                     | Rejects when                                      |
 | ------------ | ------------------------------------------------------------- | ------------------------------------------------- |
-| `hydrated()` | The first read of this key to land, whatever its outcome.     | Disposal or scope release cancels the read.       |
+| `hydrated()` | The first read to complete, including a failed read.          | Disposal or scope release cancels the read.       |
 | `flush()`    | Every mutation accepted before the call to reach the adapter. | A write fails or disposal interrupts the barrier. |
 
 Neither creates a read. Reaching the key with `silo.value(key)` did that
@@ -35,17 +35,17 @@ const draft = silo.value("draft");
 
 await draft.hydrated();
 
-draft.get(); // the persisted value, not the fallback
+draft.get(); // inspect draft.status.get() to distinguish a read error from an absent value
 ```
 
 `hydrated()` **resolves**, it does not report an outcome. It resolves when the
-first read has landed, including when that read failed: an adapter that threw
+first read has completed, including when that read failed: an adapter that threw
 or a value that would not decode is a completed hydration whose result is an
 error status. Check `status` for the outcome, not the promise.
 
 It resolves early in two other cases, both deliberate:
 
-- A `set()` or `remove()` issued before the read lands supersedes it. The read
+- A `set()` or `remove()` issued before the read completes supersedes it. The read
   is abandoned, because the caller's value is newer than anything on disk, and
   `hydrated()` settles at once rather than waiting for a value nobody will
   use.
@@ -69,6 +69,20 @@ when the chain finishes and every waiting read runs. When the default storage
 is synchronous and no step is pending, the gate opens inside the constructor,
 so a synchronous storage keeps its first frame even with migrations declared.
 See [migrations](migrations.md).
+
+## reload
+
+`await draft.reload()` reads storage again without replacing the handle or its
+subscriptions. It waits for pending writes first and rejects if those writes
+failed. Concurrent callers share a read. During the read, the current snapshot
+stays available; failure preserves it and reports a `read` error.
+
+A local write or valid external value that arrives later supersedes the read.
+The reload resolves and the stale result is ignored. Disposal and scope release
+reject a pending reload. Calling it during initial hydration joins that read;
+unlike `hydrated()`, it rejects if the read fails.
+
+See [read recovery](errors-and-recovery.md#retry-a-read) for a complete example.
 
 ## flush
 
@@ -112,7 +126,7 @@ queueing a round trip per character.
 
 ### Failure
 
-A failed write never throws out of `set()`. It lands on the status and
+A failed write never throws out of `set()`. It appears on the status and
 rejects the barriers waiting on that revision:
 
 ```ts
@@ -189,8 +203,7 @@ await silo.flush();
 silo.dispose();
 ```
 
-That is the whole rule: flush first if the last write matters. Outstanding
-`hydrated()`, `flush()`, and migration `ready()` promises reject on dispose,
+Outstanding `hydrated()`, `flush()`, and migration `ready()` promises reject on dispose,
 and a `set()` after it is a silent no-op.
 
 `await scope.release()` waits for durable writes, then frees cached records

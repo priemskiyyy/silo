@@ -108,12 +108,19 @@ return after the write has finished.
 
 Inbound data is decoded once, then kept by reference:
 
-| Result                 | Initial hydration                                  | External report                       |
-| ---------------------- | -------------------------------------------------- | ------------------------------------- |
-| Absent                 | Fallback and ready status                          | Fallback and ready status             |
-| Valid                  | Decoded value and ready status                     | Decoded value and ready status        |
-| Expired                | Removal through the write queue                    | Removal through the write queue       |
-| Invalid or failed read | Fallback and hydrate error; retain stored raw data | Ignore; preserve the current snapshot |
+| Result                 | Initial hydration                                  | External report                            |
+| ---------------------- | -------------------------------------------------- | ------------------------------------------ |
+| Absent                 | Fallback and ready status                          | Fallback and ready status                  |
+| Valid                  | Decoded value and ready status                     | Decoded value and ready status             |
+| Expired                | Removal through the write queue                    | Removal through the write queue            |
+| Invalid or failed read | Fallback and hydrate error; retain stored raw data | Preserve the value and report a read error |
+
+A rejected keyed external report does not cancel initial hydration or hide an
+existing write error. Adapter error reports reach diagnostics even for unacquired
+keys. A manual `reload()` joins an active read or starts one after writes finish;
+its optional completion belongs to the read reservation. It rejects on failure
+or disposal and resolves when a newer mutation or valid external value supersedes
+it. A coarse event transfers that completion to its replacement read.
 
 A rejected keyed external report does not cancel initial hydration. An accepted
 external change invalidates older reads and is acknowledged as already durable.
@@ -229,7 +236,7 @@ See [memory ownership](memory.md) for the benchmark and collection checks.
 | Queue operations and barriers     | Derive accepted operation shape and deferred settlement types.                                                                                           |
 | Lifecycle state                   | Record admission retains success or failure in a state union; hydration completion is derived from value status.                                         |
 | Class fields                      | Infer constructor-assigned private fields when annotations only repeat the assignment.                                                                   |
-| Status errors                     | Restrict store errors to migration and value errors to hydration or writes.                                                                              |
+| Status errors                     | Restrict store errors to migration and value errors to hydration, reads, or writes.                                                                      |
 | Protocols and state unions        | Retain explicit codec, observable, value, expiry, inbound, queue-state, and storage contracts. These specify behavior rather than repeat implementation. |
 | Schema mapping                    | Retain `Declarations`, `KeyOf`, `DefinitionOf`, `InferSchema`, and `NativeOf`: they express relationships that runtime inference cannot recover.         |
 | Public mock and conformance types | Retain the supported testing contracts independently of their implementation.                                                                            |

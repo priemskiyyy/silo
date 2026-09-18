@@ -4,10 +4,9 @@ description: "The Silo store: constructor options, how adapters are chosen, valu
 
 # The store
 
-A `Silo` owns an application's storages. Each storage has a schema of values
-and an ordered list of candidate adapters, and the store hands out one typed
-handle per key. It is a class, constructed once per application, and everything
-else is reached through it.
+A `Silo` groups named storages and provides typed value handles. Each storage
+declares a schema and its candidate adapters. Create one instance for a browser
+application, or one per request when rendering on a server.
 
 ```ts
 import { Silo, value } from "@priemskiyyy/silo";
@@ -81,6 +80,7 @@ type SiloValue<TValue> = {
   subscribe: (listener: () => void) => () => void;
   status: ObservableValue<ValueStatus>;
   hydrated: () => Promise<void>;
+  reload: () => Promise<void>;
   flush: () => Promise<void>;
 };
 ```
@@ -107,7 +107,7 @@ theme.get(); // "light" | "dark", right now
 ```
 
 It reads a snapshot the store already holds, not the backend. What differs
-between backends is only **when the persisted value lands in that snapshot**:
+between backends is only **when the persisted value becomes available**:
 
 - On a synchronous adapter it is already there when `value(key)` returns, so
   the first `get()` is the stored value.
@@ -117,13 +117,15 @@ between backends is only **when the persisted value lands in that snapshot**:
 [Synchronous and asynchronous](sync-vs-async.md) is the whole story, including
 why the adapter contract is split in two.
 
-## Promises are barriers, not reads
+## Waiting and reloading
 
-Six calls return promises. None of them is a read.
+`reload()` explicitly reads storage again. The other calls wait for existing
+work or for the writes they submit.
 
 | Barrier            | Resolves when                                                                     |
 | ------------------ | --------------------------------------------------------------------------------- |
-| `value.hydrated()` | The first read for that key has landed, whatever its outcome.                     |
+| `value.reload()`   | Storage has been reread after pending writes; rejects on failure.                 |
+| `value.hydrated()` | The first read for that key has completed, including a failed read.               |
 | `value.flush()`    | Every mutation accepted before the call has reached the adapter.                  |
 | `silo.flush()`     | The same, across every value the store has touched.                               |
 | `silo.clear()`     | Every declared key of every storage at this scope has been removed and persisted. |

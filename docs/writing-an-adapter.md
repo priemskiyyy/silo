@@ -71,30 +71,22 @@ on `name`.
 
 ## Rules
 
-- **Choose `mode` honestly.** `sync` means `get` returns the value itself, on
-  every call, with no cache warming and no first-read penalty. An in-process
-  `Map`, `localStorage` and MMKV qualify. A backend whose read is asynchronous
-  even once is `async`. Dressing it as `sync` by returning a stale cache breaks
-  the one guarantee the mode exists to make: with a synchronous adapter and no
-  pending migration, the first `get()` already returns persisted data.
-- **The adapter owns serialization, the codec owns validation.** The core
-  hands you a decoded JavaScript value and expects one back. A text backend
-  encodes and parses internally; one with structured clone stores the value as
-  it is. That is what keeps `decode: schema.parse` a one-liner and what keeps
-  a `Date` alive through IndexedDB. Name in your README which values survive,
-  because the answer is a property of your backend.
-- **Keys are opaque.** The core composes `${namespace}:${...segments}:${key}`
-  and hands you the result. Store it byte for byte. Trimming it, lowercasing
-  it, splitting on `:` or re-prefixing it silently orphans every value already
-  written. No adapter takes a `prefix` option, and the conformance suite
-  writes deliberately odd keys to catch a transform. A backend that cannot
-  hold the characters, such as a keychain service name, encodes the key
-  reversibly and decodes it in `keys()`.
-- **Keep the factory cold.** Nothing at module import, nothing in the factory
-  call. Resolve the backend on first use and memoize it. The
-  `globalThis.localStorage` getter itself throws `SecurityError` when site data
-  is blocked, so even asking whether the platform is there belongs inside a
-  guard. `available()` is that guarded question and nothing more.
+- **Match `mode` to every operation.** A sync adapter returns values immediately;
+  an async adapter returns promises. A first read that needs asynchronous setup
+  makes the adapter async, even if later reads could use a cache.
+- **Serialize the adapter-level value.** `set` receives the codec's encoded
+  value, including an expiry envelope when configured. `get` returns that same
+  shape for the core to decode. Text backends serialize and parse it; structured
+  backends preserve the supported values directly. Document which types survive
+  a round trip.
+- **Treat keys as opaque.** The core constructs an address and applies any
+  configured key mapping before calling the adapter. Store the resulting key
+  unchanged. If a backend restricts key characters, use a reversible encoding
+  and decode keys during enumeration and observation.
+- **Defer access to the platform.** Do not open storage during module import or
+  factory construction. Availability probes must be synchronous and must not
+  open a connection. Catch platform-access errors such as a throwing
+  `globalThis.localStorage` getter in the probe.
 - **`undefined` means absent and nothing else.** `get` returns `undefined` for
   an absent key; `null` is an ordinary stored value that must stay distinct
   from it. The core never calls `set` with `undefined`.
@@ -157,7 +149,10 @@ adapter owns the JSON on both sides: `stringify` on every write, `parse` on
 every read, `undefined` written as a removal, and a text that will not parse
 thrown from `get` so the core reports it as a failed hydration. An `observe`
 that reports text is decoded the same way, and a report that will not decode
-is dropped rather than replacing the snapshot.
+reports `{ key, error: { cause } }` rather than replacing the snapshot.
+Use the same report when reading a notified key fails, or `key: null` for an
+observation connection failure. Catch backend errors separately from invoking
+the listener so a consumer exception is not mistaken for corrupt storage.
 
 ```ts
 import { createTextStorageAdapter } from "@priemskiyyy/silo";
@@ -318,7 +313,7 @@ README.md
 LICENSE
 src/index.ts          exports the factory and the options type, nothing else
 src/<name>.ts         the factory, one exported arrow function
-src/<name>.fixture.ts a fake of the handed-over instance, when there is one
+src/<name>.fixture.ts a fake of the supplied instance, when there is one
 src/<name>.test.ts    backend semantics
 src/conformance.test.ts
 src/types/<Name>AdapterOptions.ts

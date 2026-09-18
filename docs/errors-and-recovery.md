@@ -14,12 +14,18 @@ Every failure the store reports has the same shape, narrowed by where it
 appears:
 
 ```ts
-type SiloError = { phase: "migrate" | "hydrate" | "write"; cause: unknown };
+type SiloError = {
+  phase: "migrate" | "hydrate" | "read" | "write";
+  cause: unknown;
+};
 
 type ValueStatus =
   | { state: "hydrating" }
   | { state: "ready" }
-  | { state: "error"; error: SiloError & { phase: "hydrate" | "write" } };
+  | {
+      state: "error";
+      error: SiloError & { phase: "hydrate" | "read" | "write" };
+    };
 
 type SiloStatus =
   | { state: "migrating" }
@@ -28,17 +34,18 @@ type SiloStatus =
 ```
 
 `phase` says which side failed, `cause` is whatever was thrown or rejected
-with. A value's status only ever carries `hydrate` or `write`; the store's
+with. A value's status carries `hydrate`, `read`, or `write`; the store's
 own status only ever carries `migrate`, so narrowing on `error.phase` is
 exhaustive on each.
 
-| Phase     | Where          | Cause                                                       | The snapshot then holds | Recovery                                                      |
-| --------- | -------------- | ----------------------------------------------------------- | ----------------------- | ------------------------------------------------------------- |
-| `hydrate` | `value.status` | `adapter.get` threw or rejected                             | the fallback            | `set()` or `remove()`; a later read succeeds                  |
-| `hydrate` | `value.status` | `decode` threw, including a validator rejecting stored data | the fallback            | `set()` or `remove()`, or fix the codec                       |
-| `write`   | `value.status` | `adapter.set` or `adapter.remove` threw or rejected         | the value you set       | `set()` again, or reconcile against `get()`                   |
-| `write`   | `value.status` | a migration failed, so the write was never allowed through  | the value you set       | fix the step, reload                                          |
-| `migrate` | `silo.status`  | a migration step threw or rejected                          | every value: fallback   | fix the step, reload; the stored version resumes at that step |
+| Phase     | Where          | Cause                                                       | The snapshot then holds | Recovery                                                                 |
+| --------- | -------------- | ----------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------ |
+| `hydrate` | `value.status` | `adapter.get` threw or rejected                             | the fallback            | `reload()` after recovery, or `set()` / `remove()` to replace the data   |
+| `hydrate` | `value.status` | `decode` threw, including a validator rejecting stored data | the fallback            | `set()` or `remove()`, or fix the codec                                  |
+| `read`    | `value.status` | A reload or external change cannot be read or decoded       | the current value       | Fix the cause and call `reload()`                                        |
+| `write`   | `value.status` | `adapter.set` or `adapter.remove` threw or rejected         | the value you set       | `set()` again, or reconcile against `get()`                              |
+| `write`   | `value.status` | a migration failed, so the write was never allowed through  | the value you set       | fix the step, reload                                                     |
+| `migrate` | `silo.status`  | a migration step threw or rejected                          | every value: fallback   | fix the step, reload; the saved checkpoint determines which steps repeat |
 
 Accepting a newer mutation clears a value's error. A read that succeeds
 later does too.
@@ -52,9 +59,43 @@ if (status.state === "error") {
 }
 ```
 
+## Retry a read
+
+`get()` returns the cached snapshot. It does not check storage again. Use
+`reload()` after restoring access or fixing the stored data:
+
+```ts
+import { Silo, value } from "@priemskiyyy/silo";
+import { localStorage } from "@priemskiyyy/silo-local-storage";
+
+const AppSchema = { draft: value({ fallback: "" }) };
+const silo = new Silo({
+  storages: { default: { adapters: [localStorage()], schema: AppSchema } },
+});
+const draft = silo.value("draft");
+
+try {
+  await draft.reload();
+  console.log(draft.get());
+} catch (cause) {
+  console.error("Could not reload the draft", cause);
+}
+```
+
+A reload waits for pending writes. If a write failed, it rejects with that error
+and leaves the unsaved snapshot alone; retry the write with `set()` first.
+Concurrent reloads share a read. A newer local mutation or valid external value
+supersedes the read, so a delayed response cannot overwrite it.
+
+A failed reload keeps the current value and reports `read`. An initial read still
+reports `hydrate` and uses the fallback. `reload()` rejects on failure;
+`hydrated()` continues to resolve when the initial attempt finishes, including
+when it fails. Neither method restarts failed migrations.
+
 ## What throws synchronously
 
-Two groups, and they are both programmer errors or your own code.
+Configuration errors and errors from your own encoding or updater code throw
+to the caller.
 
 **Your codec.** `encode` runs inside `set()`, before anything else, and its
 throw is yours to catch:
@@ -102,14 +143,14 @@ compile error first.
 
 ## Hydrate errors keep the data
 
-Two specifics worth knowing:
-
 - **The unreadable raw value is kept, untouched.** It is not deleted, not
   quarantined, or rewritten. Keeping it allows inspection and migration. `set()` and `remove()` are the recovery path, and a
   [migration](migrations.md) is the planned one.
 - **A decode failure arriving from outside keeps the last good snapshot.**
   If another tab writes something this tab cannot read, the value on screen
-  stays. A worse answer is not an improvement over the current one.
+  stays unchanged and status reports a `read` error. During initial hydration,
+  a bad notification is recorded in diagnostics without interrupting that read.
+  An existing write error takes precedence over an external read error.
 
 A Standard Schema validator is a decoder like any other: a Zod schema that
 rejects a hand-edited URL parameter reports `hydrate` with an error describing the validation issues as the
@@ -120,6 +161,7 @@ cause, and the key reads as its fallback. See
 
 | Call               | Rejects with                                                                       |
 | ------------------ | ---------------------------------------------------------------------------------- |
+| `value.reload()`   | A read/decode failure, an outstanding write failure, disposal, or scope release.   |
 | `value.flush()`    | The write error, and again on every later call until a newer mutation is accepted. |
 | `silo.flush()`     | The first write error among the values it covers.                                  |
 | `silo.clear()`     | The same, for the removals it issued.                                              |
@@ -148,13 +190,12 @@ is another `set()`.
 | Screen shows the new value, reload shows the old one | `write`   | the adapter refused the write: quota, blocked storage, a 5xx | watch the status and tell the user; retry with `set()`                           |
 | Every value reads its fallback, nothing persists     | `migrate` | a migration step failed and closed the store                 | read `silo.status`, fix the step, reload                                         |
 | `flush()` keeps rejecting                            | `write`   | nothing newer was accepted since the failure                 | intended; `set()` again clears it                                                |
-| Nothing at all persists, no error anywhere           |           | the candidate list landed on `memory()`                      | check `silo.diagnostics.get().storages`; the probe of the first candidate failed |
+| Nothing at all persists, no error anywhere           |           | the store selected `memory()`                                | check `silo.diagnostics.get().storages`; the probe of the first candidate failed |
 
 ## Quota exhaustion
 
 `localStorage.setItem` throws `QuotaExceededError` synchronously when the
-origin is out of space, which in a naive integration crashes the event
-handler that called it. Here it is a write error: the snapshot keeps your
+origin is out of space, which Silo reports as a write error: the snapshot keeps your
 value, the status turns `error` with `phase: "write"`, and `flush()`
 rejects.
 
@@ -205,10 +246,9 @@ if (app.native.default instanceof Map) {
 ```
 
 `localStorage()` answers `available()` with whether the platform is there,
-so the store lands on `memory()` and every read and write works for the
-session. Without a fallback candidate the browser adapter is taken anyway:
-reads answer `undefined`, `native` is `null`, and writes become `write`
-errors. Both are deliberate; pick the one your application can explain.
+so a failed probe selects `memory()`. Supported values then remain available
+for that session only. Without a working candidate, `new Silo()` throws an
+`AggregateError`. Choose whether session-only behavior is acceptable for the application.
 
 `available` on every adapter can be replaced by a probe of your own, which
 is how a consent banner, a private-mode flag, or a platform check decides
@@ -218,17 +258,32 @@ IndexedDB fails differently. An open request blocked by another tab holding
 an older version stays pending and completes by itself when that tab
 closes, so the adapter logs a warning naming the database rather than
 failing silently. Reads and writes behind it stay pending, and so does
-`hydrated()`.
+`hydrated()`. Silo has no general operation timeout. Use the backend's timeout
+or cancellation support when it offers one; timing out a wait does not cancel
+a write that the backend may still commit.
+
+### Native SDKs in a browser
+
+`mmkv({ storage })` and `icloud({ store })` wrap instances supplied by the
+application. Their default availability probe returns `true`; it is not a
+platform detector. Prefer separate browser and native adapter modules, or pass
+an explicit `available` callback. Imports and SDK construction happen before
+Silo can try a fallback, so a probe cannot protect those steps.
+
+A synchronous observer setup failure can fall through to the next candidate.
+A later SDK rejection becomes an operation or observation error, with no adapter
+switch. This keeps values and migration checkpoints on the same backend.
 
 ## A failed migration
 
-A step that throws or rejects lands on `silo.status` as
+A step that throws or rejects appears on `silo.status` as
 `{ state: "error", error: { phase: "migrate", cause } }`, on both modes,
 and `silo.ready()` rejects with the same cause. The store closes: every
 value reached after that reads its fallback with a `hydrate` error carrying
 the cause, and every write is refused with a `write` error carrying it. The
-stored version stays at the last step that landed, so the next start resumes
-there. See [migrations](migrations.md).
+stored version stays at the last saved checkpoint, so the next startup repeats
+the uncheckpointed steps. A failed checkpoint can repeat a callback even when
+its data changes succeeded. See [migrations](migrations.md).
 
 ## The snapshot is not rolled back
 
@@ -256,7 +311,7 @@ listeners.
 
 ## Dispose
 
-`dispose()` rejects every outstanding `hydrated()` promise with
+`dispose()` rejects pending `reload()` calls and every outstanding `hydrated()` promise with
 `This Silo was disposed before "<key>" finished hydrating.`, rejects a
 pending `flush()` the same way, stops notifications, and refuses new
 mutations silently. A `set()` after disposal is a no-op, not a throw, so
@@ -270,7 +325,8 @@ the adapter.
 Hydration, persistence, migration and rejected external updates emit diagnostic
 events while a listener is attached. Their context includes the cause:
 `hydrate landed` with outcome `invalid`, `write refused`, `migration failed`,
-`outside dropped`. [Devtools](devtools.md) lists them per record, and
+`outside dropped`, and `observation failed`. Adapter observation errors are
+recorded even when their key has no cached value. [Devtools](devtools.md) lists them per record, and
 `silo.diagnostics.events` streams them to your own logger:
 
 ```ts

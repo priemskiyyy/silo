@@ -4,10 +4,9 @@ description: "How a Silo store learns about changes it did not make: the observe
 
 # External observation
 
-Another tab writes to `localStorage`. Another silo on the same IndexedDB
-database commits. A server announces a write from another device. Something
-outside this store changed a value it holds. `observe` is how an adapter
-reports that, and it is an optional member of the adapter contract.
+Adapters with `observe` can report changes made outside the current store, such
+as a localStorage write from another tab or a server publication. Silo applies
+these reports to values it has already loaded.
 
 ```ts
 import type { StorageChange } from "@priemskiyyy/silo";
@@ -17,13 +16,15 @@ export type Observe = (listener: (change: StorageChange) => void) => () => void;
 
 The core guards it once, with `typeof adapter.observe === "function"`, when
 the store is constructed, and stops observing when the store is disposed.
-There is no capability system: an adapter that cannot report a change omits
-the member, and that is the supported answer.
+Adapters without external notifications omit `observe`.
 
 ## What a change looks like
 
 ```ts
-export type StorageChange = { key: string; value: unknown } | { key: null };
+export type StorageChange =
+  | { key: string; value: unknown }
+  | { key: null }
+  | { key: string | null; error: { cause: unknown } };
 ```
 
 `key` is the physical key, exactly as the core composed it, and `value` is
@@ -32,9 +33,16 @@ run yet; the core decodes it on arrival like any other inbound raw value. An
 absent value is reported as `undefined`.
 
 `{ key: null }` means everything changed and the core must re-read. It is the
-honest report for a backend that can say a change happened but not which
+report for a backend that can say a change happened but not which
 keys were in it: `localStorage.clear()` in another tab, or the browser's
 back button on a `searchParams()` storage.
+
+`{ key, error: { cause } }` reports a failed external read or decode. Use a
+physical key for one value, or `key: null` when observation itself failed.
+Existing values keep their snapshots and report `phase: "read"`; pending initial
+hydration and outstanding write errors keep their existing status. Diagnostics
+records `observation failed` without creating records. Text adapters report parse
+failures through this path.
 
 ## What each adapter reports
 
@@ -80,7 +88,7 @@ The core copes without help from the adapter:
 
 - An echo that arrives **while the write is still in flight** is dropped,
   like any external change arriving under an open write.
-- An echo that arrives **after the write landed** carries the value the
+- An echo that arrives **after the write completed** carries the value the
   snapshot already holds. A primitive is deduplicated with `Object.is` and
   notifies nobody. An object is a new reference after decoding, so it does
   notify once, with the same content.
@@ -125,11 +133,11 @@ Four more rules follow from the same place:
 
 - **An external change abandons an in-flight read.** The pushed value is
   newer than whatever the adapter is still answering with, so the read's
-  reservation is dropped and its result is discarded when it lands.
+  reservation is dropped and its result is discarded when it completes.
 - **A committed external change is already durable.** It advances the
   revision and the durable watermark together, so a `flush()` issued after
   it has nothing to wait for.
-- **It settles hydration.** A value whose first read has not landed yet, but
+- **It settles hydration.** A value whose first read has not completed yet, but
   which an external change reached, resolves its `hydrated()` on that
   change.
 - **Nothing is applied behind the migration gate.** While `silo.status` is
@@ -189,7 +197,7 @@ delivers `{ key, value }` publications as outside changes: the snapshot
 updates, subscribers are notified, and nothing is re-read. The natural
 announcer is the server that stored the value. For a setup without one, such
 as `localStorage` plus a `BroadcastChannel` provider, pass `publish` and the
-bridge announces this device's own writes after each one lands. The
+bridge announces this device's own writes after each write completes. The
 [Fieldbook example](examples.md) runs the bridge over `http` against a
 server that lives in the page, announcing on a `BroadcastChannel`, so a
 second tab receives a remote write without polling.
