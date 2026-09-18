@@ -205,9 +205,8 @@ export class SiloValues<TStorages extends Storages> {
       record: ValueRecord;
     }> = [];
     for (const backing of this.#backings.values()) {
-      const prefix = backing.keyspace.prefix(segments);
       for (const [key, record] of backing.records) {
-        if (!key.startsWith(prefix)) {
+        if (!record.isInScope(segments)) {
           continue;
         }
         selected.push({ backing, key, record });

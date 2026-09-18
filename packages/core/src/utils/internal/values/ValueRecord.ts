@@ -12,6 +12,7 @@ import type { Diagnostics } from "src/utils/internal/Diagnostics";
 import type { Migrations } from "src/utils/internal/migrations/Migrations";
 import type { ValueCodec } from "src/utils/internal/values/ValueCodec";
 import { WriteQueue } from "src/utils/internal/values/WriteQueue";
+import { KEY_SEPARATOR } from "src/utils/constants/keyspace";
 
 type Snapshot = Pick<SiloSnapshot["records"][number], "value" | "status">;
 type ReadReservation = { revision: number; source: "HYDRATION" | "EXTERNAL" };
@@ -147,6 +148,15 @@ export class ValueRecord {
 
   get dirty() {
     return this.#writes.dirty;
+  }
+
+  isInScope(segments: string[]) {
+    if (segments.length === 0) {
+      return true;
+    }
+    const scope = this.#identity.segments.join(KEY_SEPARATOR);
+    const parent = segments.join(KEY_SEPARATOR);
+    return scope === parent || scope.startsWith(`${parent}${KEY_SEPARATOR}`);
   }
 
   inspect(): SiloSnapshot["records"][number] {

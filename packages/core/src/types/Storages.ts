@@ -28,4 +28,9 @@ type Storage = {
    * storage's namespace either way.
    */
   namespace?: string;
+  /** Reversible translation between Silo addresses and existing physical keys, including migration metadata. */
+  keys?: {
+    encode: (key: string) => string;
+    decode: (key: string) => string | undefined;
+  };
 };

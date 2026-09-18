@@ -7,15 +7,22 @@ import {
 } from "src/utils/constants/keyspace";
 
 /**
- * Physical keys use `${namespace}:${...segments}:${key}`.
+ * Composes logical addresses, then translates them through the storage's key mapping.
  * An empty namespace omits the prefix and its separator.
  */
 export class Keyspace {
   namespace;
   version;
   #prefix;
+  #keys;
 
-  constructor(namespace: string) {
+  constructor({
+    namespace,
+    keys,
+  }: {
+    namespace: string;
+    keys?: Storages[string]["keys"];
+  }) {
     if (namespace.includes(KEY_SEPARATOR)) {
       throw new Error(
         `A Silo namespace must not contain "${KEY_SEPARATOR}", received "${namespace}".`,
@@ -23,12 +30,15 @@ export class Keyspace {
     }
 
     this.namespace = namespace;
+    this.#keys = keys;
     this.#prefix = namespace === "" ? "" : `${namespace}${KEY_SEPARATOR}`;
-    this.version = `${namespace}${KEY_SEPARATOR}${KEY_SEPARATOR}version`;
+    this.version = this.#encode(
+      `${namespace}${KEY_SEPARATOR}${KEY_SEPARATOR}version`,
+    );
   }
 
   physical(segments: string[], key: string) {
-    const physical = `${this.prefix(segments)}${key}`;
+    const physical = this.#encode(`${this.#prefixFor(segments)}${key}`);
     if (physical === this.version) {
       throw new Error(`The key "${physical}" is reserved for Silo migrations.`);
     }
@@ -41,18 +51,39 @@ export class Keyspace {
       return null;
     }
 
-    if (!physical.startsWith(this.#prefix)) {
+    const logical =
+      this.#keys === undefined ? physical : this.#keys.decode(physical);
+    if (logical === undefined || !logical.startsWith(this.#prefix)) {
       return null;
     }
 
-    return physical.slice(this.#prefix.length);
+    if (this.#keys !== undefined && this.#keys.encode(logical) !== physical) {
+      return null;
+    }
+    return logical.slice(this.#prefix.length);
   }
 
-  prefix(segments: string[]) {
+  #prefixFor(segments: string[]) {
     if (segments.length === 0) {
       return this.#prefix;
     }
     return `${this.#prefix}${segments.join(KEY_SEPARATOR)}${KEY_SEPARATOR}`;
+  }
+
+  #encode(logical: string) {
+    if (this.#keys === undefined) {
+      return logical;
+    }
+    const physical = this.#keys.encode(logical);
+    if (typeof physical !== "string" || physical === "") {
+      throw new Error("A Silo key mapping must produce a non-empty string.");
+    }
+    if (this.#keys.decode(physical) !== logical) {
+      throw new Error(
+        `Silo cannot map "${logical}": keys.decode must reverse keys.encode.`,
+      );
+    }
+    return physical;
   }
 
   static assertKey = (key: string) => {
@@ -102,7 +133,10 @@ export const createKeyspaces = ({
     const resolvedNamespace =
       storage.namespace ??
       (chosen.adapter.keyspace?.namespace === "hidden" ? "" : namespace);
-    keyspaces.set(name, new Keyspace(resolvedNamespace));
+    keyspaces.set(
+      name,
+      new Keyspace({ namespace: resolvedNamespace, keys: storage.keys }),
+    );
     for (const key of Object.keys(storage.schema)) {
       Keyspace.assertKey(key);
     }
