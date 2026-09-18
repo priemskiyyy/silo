@@ -101,31 +101,35 @@ export class SiloValues<TStorages extends Storages> {
     return this.#barrier(records);
   };
 
-  flush = async (): Promise<void> => {
+  async flush(): Promise<void> {
     this.#assertActive();
-    return this.#barrier(this.#all());
-  };
+    await Promise.all(
+      [...this.#backings.values()].map(({ records }) =>
+        this.#barrier(records.values()),
+      ),
+    );
+  }
 
-  release = async (segments: string[]): Promise<void> => {
+  async release(segments: string[]): Promise<void> {
     while (true) {
       this.#assertActive();
       const selected = this.#select(segments);
-      const dirty = selected.flatMap(({ record }) => {
+      if (selected.length === 0) {
+        return;
+      }
+      const waiting = selected.flatMap(({ record }) => {
         if (!record.dirty) {
           return [];
         }
-        return [record];
+        return [record.flush()];
       });
-      if (dirty.length > 0) {
-        await this.#barrier(dirty);
+      if (waiting.length > 0) {
+        await Promise.all(waiting);
         continue;
       }
       for (const { backing, key, record } of selected) {
         record.dispose("This Silo scope was released");
         backing.records.delete(key);
-      }
-      if (selected.length === 0) {
-        return;
       }
       this.#diagnostics.changed();
       if (this.#diagnostics.recording) {
@@ -139,7 +143,7 @@ export class SiloValues<TStorages extends Storages> {
       }
       return;
     }
-  };
+  }
 
   inspect = (): SiloSnapshot["records"] => {
     const records: SiloSnapshot["records"] = [];
@@ -185,11 +189,6 @@ export class SiloValues<TStorages extends Storages> {
       throw new Error("This Silo was disposed.");
     }
   };
-
-  #all = () =>
-    [...this.#backings.values()].flatMap((backing) => [
-      ...backing.records.values(),
-    ]);
 
   #select(segments: string[]) {
     const selected: Array<{
@@ -247,7 +246,7 @@ export class SiloValues<TStorages extends Storages> {
     return record;
   };
 
-  #barrier = (records: ValueRecord[]): Promise<void> => {
+  #barrier(records: Iterable<ValueRecord>): Promise<void> {
     const waiting: Promise<void>[] = [];
     for (const record of records) {
       if (!record.dirty) {
@@ -256,7 +255,7 @@ export class SiloValues<TStorages extends Storages> {
       waiting.push(record.flush());
     }
     return Promise.all(waiting).then(() => {});
-  };
+  }
 }
 
 // The overload restores a schema-resolved value type after heterogeneous records share one map.

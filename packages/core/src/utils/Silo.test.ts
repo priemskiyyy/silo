@@ -755,6 +755,43 @@ test("flush covers every record the store has handed out", async () => {
   silo.dispose();
 });
 
+test("flush covers dirty records in every storage without waiting for later writes to clean records", async () => {
+  const local = createMockAdapter({ mode: "async", hold: true });
+  const remote = createMockAdapter({ mode: "async", hold: true });
+  const silo = new Silo({
+    storages: {
+      default: { adapters: [local.adapter], schema },
+      remote: { adapters: [remote.adapter], schema },
+    },
+  });
+  const theme = silo.value("theme");
+  silo.value("visits").set(1);
+  silo.scope("users:7").value("remote.visits").set(2);
+  const settled = vi.fn();
+  const flushed = silo.flush();
+  flushed.then(settled);
+  theme.set("dark");
+
+  local.calls
+    .find((call) => call.key === "silo:visits" && call.operation === "set")
+    ?.settle();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(settled).not.toHaveBeenCalled();
+
+  remote.calls.find((call) => call.operation === "set")?.settle();
+  await flushed;
+
+  expect(settled).toHaveBeenCalledOnce();
+  expect(local.store.get("silo:visits")).toBe(1);
+  expect(remote.store.get("silo:users:7:visits")).toBe(2);
+  expect(
+    local.calls.find(
+      (call) => call.key === "silo:theme" && call.operation === "set",
+    )?.pending,
+  ).toBe(true);
+  silo.dispose();
+});
+
 test("a storage's own namespace overrides the store's, and a migration translates per storage", () => {
   const local = createMockAdapter();
   const url = createMockAdapter();
