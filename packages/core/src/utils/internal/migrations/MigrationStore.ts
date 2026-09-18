@@ -1,10 +1,9 @@
 import type { AsyncMigrationStore } from "src/types/AsyncMigrationStore";
-import type { StorageAdapter } from "src/types/StorageAdapter";
 import type { SyncMigrationStore } from "src/types/SyncMigrationStore";
 import { assertUnreachable } from "src/utils/common/assertUnreachable";
 import { DEFAULT_STORAGE } from "src/utils/constants/keyspace";
 import type { AcquiredStorages } from "src/utils/internal/adapter/AcquiredStorages";
-import type { createKeyspaces } from "src/utils/internal/Keyspace";
+import type { Keyspace, createKeyspaces } from "src/utils/internal/Keyspace";
 
 /** Owns raw namespace access; typed views preserve each migration mode's return types. */
 export class MigrationStore {
@@ -18,121 +17,114 @@ export class MigrationStore {
     this.#options = options;
   }
 
-  synchronous = (): SyncMigrationStore => this.#sync(DEFAULT_STORAGE);
-
-  asynchronous = (): AsyncMigrationStore => this.#async(DEFAULT_STORAGE);
-
-  #sync = (name: string): SyncMigrationStore => {
-    const adapter = this.#synchronousAdapter(name);
+  synchronous = (name = DEFAULT_STORAGE): SyncMigrationStore => {
+    const { adapter, keyspace } = this.#synchronousStorage(name);
     const store: SyncMigrationStore = {
-      get: (key) => adapter.get(this.#physical(name, key)),
-      set: (key, raw) => adapter.set(this.#physical(name, key), raw),
-      remove: (key) => adapter.remove(this.#physical(name, key)),
+      get: (key) => adapter.get(this.#physical(keyspace, key)),
+      set: (key, raw) => adapter.set(this.#physical(keyspace, key), raw),
+      remove: (key) => adapter.remove(this.#physical(keyspace, key)),
       keys: () => {
         this.#options.assertActive();
         if (typeof adapter.keys !== "function") {
-          throw this.#cannotEnumerate(adapter);
+          throw new Error(
+            `The ${adapter.name} storage adapter cannot list its keys, so a migration cannot enumerate this namespace.`,
+          );
         }
-        return this.#relative(name, adapter.keys());
+        return this.#relative(keyspace, adapter.keys());
       },
-      storage: this.#sync,
-      // The target key is composed with the target storage's namespace.
+      storage: this.synchronous,
       copy: (key, { to = name, as = key } = {}) => {
-        const raw = adapter.get(this.#physical(name, key));
+        const raw = adapter.get(this.#physical(keyspace, key));
         if (raw === undefined) {
           return;
         }
-        this.#synchronousAdapter(to).set(this.#physical(to, as), raw);
+        const target = this.#synchronousStorage(to);
+        target.adapter.set(this.#physical(target.keyspace, as), raw);
       },
       move: (key, target = {}) => {
         store.copy(key, target);
         if (this.#same(name, key, target)) {
           return;
         }
-        adapter.remove(this.#physical(name, key));
+        adapter.remove(this.#physical(keyspace, key));
       },
       rename: (from, to) => store.move(from, { as: to }),
     };
     return store;
   };
 
-  #async = (name: string): AsyncMigrationStore => {
-    const adapter = this.#named(name);
+  asynchronous = (name = DEFAULT_STORAGE): AsyncMigrationStore => {
+    const { adapter, keyspace } = this.#storage(name);
     const store: AsyncMigrationStore = {
-      get: async (key) => adapter.get(this.#physical(name, key)),
+      get: async (key) => adapter.get(this.#physical(keyspace, key)),
       set: async (key, raw) => {
-        await adapter.set(this.#physical(name, key), raw);
+        await adapter.set(this.#physical(keyspace, key), raw);
       },
       remove: async (key) => {
-        await adapter.remove(this.#physical(name, key));
+        await adapter.remove(this.#physical(keyspace, key));
       },
       keys: async () => {
         this.#options.assertActive();
         if (typeof adapter.keys !== "function") {
-          throw this.#cannotEnumerate(adapter);
+          throw new Error(
+            `The ${adapter.name} storage adapter cannot list its keys, so a migration cannot enumerate this namespace.`,
+          );
         }
-        return this.#relative(name, await adapter.keys());
+        return this.#relative(keyspace, await adapter.keys());
       },
-      storage: this.#async,
+      storage: this.asynchronous,
       copy: async (key, { to = name, as = key } = {}) => {
-        const raw = await adapter.get(this.#physical(name, key));
+        const raw = await adapter.get(this.#physical(keyspace, key));
         if (raw === undefined) {
           return;
         }
-        await this.#named(to).set(this.#physical(to, as), raw);
+        const target = this.#storage(to);
+        await target.adapter.set(this.#physical(target.keyspace, as), raw);
       },
       move: async (key, target = {}) => {
         await store.copy(key, target);
         if (this.#same(name, key, target)) {
           return;
         }
-        await adapter.remove(this.#physical(name, key));
+        await adapter.remove(this.#physical(keyspace, key));
       },
       rename: (from, to) => store.move(from, { as: to }),
     };
     return store;
   };
 
-  #physical = (name: string, key: string) => {
+  #physical(keyspace: Keyspace, key: string) {
     this.#options.assertActive();
-    return this.#keyspace(name).physical([], key);
-  };
+    return keyspace.physical([], key);
+  }
 
-  #relative = (name: string, keys: string[]) =>
-    keys.flatMap((key) => {
-      const stripped = this.#keyspace(name).relative(key);
+  #relative(keyspace: Keyspace, keys: string[]) {
+    return keys.flatMap((key) => {
+      const stripped = keyspace.relative(key);
       if (stripped === null) {
         return [];
       }
       return [stripped];
     });
+  }
 
-  #keyspace = (name: string) => {
-    const keyspace = this.#options.keyspaces[name];
-    if (keyspace === undefined) {
-      throw new Error(
-        `Silo has no storage named "${name}"; declared: ${Object.keys(this.#options.keyspaces).join(", ")}.`,
-      );
-    }
-    return keyspace;
-  };
-
-  #named = (name: string) => {
+  #storage(name: string) {
     this.#options.assertActive();
-    const { backends } = this.#options;
+    const { backends, keyspaces } = this.#options;
     const adapter = backends[name]?.adapter;
-    if (adapter === undefined) {
+    const keyspace = keyspaces[name];
+    if (adapter === undefined || keyspace === undefined) {
       throw new Error(
         `Silo has no storage named "${name}"; declared: ${Object.keys(backends).join(", ")}.`,
       );
     }
-    return adapter;
-  };
+    return { adapter, keyspace };
+  }
 
-  #synchronousAdapter = (name: string) => {
-    const adapter = this.#named(name);
+  #synchronousStorage(name: string) {
+    const { adapter, keyspace } = this.#storage(name);
     if (adapter.mode === "sync") {
-      return adapter;
+      return { adapter, keyspace };
     }
     if (adapter.mode === "async") {
       throw new Error(
@@ -140,23 +132,23 @@ export class MigrationStore {
       );
     }
     return assertUnreachable(adapter);
-  };
+  }
 
-  #cannotEnumerate = (adapter: StorageAdapter) =>
-    new Error(
-      `The ${adapter.name} storage adapter cannot list its keys, so a migration cannot enumerate this namespace.`,
-    );
-
-  // Different storage names can refer to the same adapter, and the same key
-  // is the same physical key only under the same namespace.
-  #same = (
+  // Aliases are the same location only when both adapter and physical key match.
+  #same(
     name: string,
     key: string,
     {
       to = name,
       as = key,
     }: NonNullable<Parameters<SyncMigrationStore["move"]>[1]>,
-  ) =>
-    this.#named(to) === this.#named(name) &&
-    this.#physical(to, as) === this.#physical(name, key);
+  ) {
+    const source = this.#storage(name);
+    const target = this.#storage(to);
+    return (
+      source.adapter === target.adapter &&
+      this.#physical(source.keyspace, key) ===
+        this.#physical(target.keyspace, as)
+    );
+  }
 }

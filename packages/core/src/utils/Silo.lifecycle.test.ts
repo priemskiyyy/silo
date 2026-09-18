@@ -1,5 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { createMockAdapter } from "src/mock/createMockAdapter";
+import type { AsyncMigrationStore } from "src/types/AsyncMigrationStore";
+import type { SyncMigrationStore } from "src/types/SyncMigrationStore";
 import { Silo } from "src/utils/Silo";
 import { value } from "src/utils/value";
 
@@ -137,6 +139,37 @@ test("an async version read that throws still reports failure asynchronously", a
   silo.dispose();
 });
 
+test("async migration writes discard return values from synchronous adapters", async () => {
+  const local = createMockAdapter();
+  const remote = createMockAdapter({ mode: "async" });
+  const silo = new Silo({
+    storages: {
+      default: {
+        adapters: [
+          {
+            ...local.adapter,
+            set: (key, raw) => local.store.set(key, raw),
+            remove: (key) => local.store.delete(key),
+          },
+        ],
+        schema: {},
+      },
+      remote: { adapters: [remote.adapter], schema: {} },
+    },
+    migrations: {
+      1: async (store) => {
+        expect(await store.set("legacy", 7)).toBeUndefined();
+        expect(local.store.get("silo:legacy")).toBe(7);
+        expect(await store.remove("legacy")).toBeUndefined();
+        expect(local.store.has("silo:legacy")).toBe(false);
+      },
+    },
+  });
+
+  await silo.ready();
+  silo.dispose();
+});
+
 test("a failed availability probe releases selected, unvisited, and rejected candidates", () => {
   const first = createMockAdapter();
   const second = createMockAdapter();
@@ -222,6 +255,58 @@ test("disposing from the ready notification preserves completed migration readin
   await expect(silo.ready()).resolves.toBeUndefined();
   expect(mock.disposeCount()).toBe(1);
 });
+
+test.each(["sync", "async"])(
+  "captured migration stores reject every operation after disposal (%s)",
+  async (mode) => {
+    const mock =
+      mode === "async"
+        ? createMockAdapter({ mode: "async" })
+        : createMockAdapter();
+    let captured: SyncMigrationStore | AsyncMigrationStore | undefined;
+    const silo = new Silo({
+      storages: {
+        default: { adapters: [mock.adapter], schema: {} },
+        other: {
+          adapters: [mock.adapter],
+          namespace: "other",
+          schema: {},
+        },
+      },
+      migrations: {
+        1: (store) => {
+          captured = store;
+        },
+      },
+    });
+    await silo.ready();
+    if (captured === undefined) {
+      throw new Error("The migration did not run.");
+    }
+    const stores = [captured, captured.storage("other")];
+    silo.dispose();
+    const calls = mock.calls.length;
+
+    for (const store of stores) {
+      const operations: Array<() => unknown> = [
+        () => store.get("key"),
+        () => store.set("key", 1),
+        () => store.remove("key"),
+        () => store.keys(),
+        () => store.copy("key"),
+        () => store.move("key"),
+        () => store.rename("key", "next"),
+        () => store.storage("default"),
+      ];
+      for (const operation of operations) {
+        await expect(Promise.resolve().then(operation)).rejects.toThrow(
+          "disposed",
+        );
+      }
+    }
+    expect(mock.calls).toHaveLength(calls);
+  },
+);
 
 test.each(["sync", "async"])(
   "migration moves between aliases of one adapter preserve the value (%s)",
