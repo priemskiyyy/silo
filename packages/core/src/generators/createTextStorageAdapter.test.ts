@@ -263,6 +263,43 @@ test.each(["sync", "async"])(
   },
 );
 
+test("native handles stay lazy in both modes", () => {
+  const backend = textBackend();
+  const native = vi.fn(() => backend.sync.native);
+  const sync = createTextStorageAdapter({
+    ...backend.sync,
+    get native() {
+      return native();
+    },
+  });
+  const async = createTextStorageAdapter({
+    ...backend.async,
+    get native() {
+      return native();
+    },
+  });
+
+  expect(native).not.toHaveBeenCalled();
+  expect(sync.native).toBe(backend.sync.native);
+  expect(async.native).toBe(backend.async.native);
+  expect(native).toHaveBeenCalledTimes(2);
+});
+
+test("observer failures are not swallowed as malformed external data", () => {
+  const backend = textBackend();
+  const adapter = createTextStorageAdapter(backend.sync);
+  const failure = new Error("listener failed");
+  const listener = vi.fn(() => {
+    throw failure;
+  });
+  adapter.observe?.(listener);
+
+  expect(() => backend.emit({ key: "theme", text: "invalid" })).not.toThrow();
+  expect(listener).not.toHaveBeenCalled();
+  expect(() => backend.emit({ key: "theme", text: '"dark"' })).toThrow(failure);
+  adapter.dispose();
+});
+
 // The adapter built here is an adapter like any other, in both modes.
 testStorageAdapter({
   name: "createTextStorageAdapter sync",
