@@ -239,6 +239,30 @@ test("dispose reaches the mapping once", () => {
   expect(backend.dispose).toHaveBeenCalledTimes(1);
 });
 
+test.each(["sync", "async"])(
+  "observing after disposal does not subscribe to the text backend (%s)",
+  (mode) => {
+    const backend = textBackend();
+    const observe = vi.fn(backend.sync.observe);
+    const adapter =
+      mode === "async"
+        ? createTextStorageAdapter({ ...backend.async, observe })
+        : createTextStorageAdapter({ ...backend.sync, observe });
+    const listener = vi.fn();
+
+    adapter.dispose();
+    const stop = adapter.observe?.(listener);
+    backend.emit({ key: "theme", text: '"late"' });
+    stop?.();
+    stop?.();
+    adapter.dispose();
+
+    expect(observe).not.toHaveBeenCalled();
+    expect(listener).not.toHaveBeenCalled();
+    expect(backend.dispose).toHaveBeenCalledOnce();
+  },
+);
+
 // The adapter built here is an adapter like any other, in both modes.
 testStorageAdapter({
   name: "createTextStorageAdapter sync",

@@ -16,11 +16,10 @@ type CreateStorageAdapter = {
 };
 
 /**
- * Wraps a provider mapping in the contract's bookkeeping: disposal runs the
- * inner `dispose` at most once, `observe` listeners fall silent after it, and a
- * later `get`, `set`, `remove` or `keys` throws an error naming the adapter.
- * The mode, the name, the native handle and `available` pass through as they
- * are, and an absent `observe` or `keys` stays absent.
+ * Adds idempotent disposal and silences observers after disposal.
+ * Subscriptions after disposal never reach the backend.
+ * Later reads, writes and key enumeration throw an error naming the adapter.
+ * Optional capabilities stay absent when the mapping does not provide them.
  *
  * @example
  * ```ts
@@ -110,16 +109,19 @@ export const createStorageAdapter: CreateStorageAdapter = <
     ...(typeof observe !== "function"
       ? {}
       : {
-          observe: (listener: (change: StorageChange) => void) =>
-            observe.call(adapter, (change) => {
-              // A change already in flight at dispose must not reach a
-              // consumer that has dropped its own listeners.
+          observe: (listener: (change: StorageChange) => void) => {
+            if (disposed) {
+              return () => {};
+            }
+
+            return observe.call(adapter, (change) => {
               if (disposed) {
                 return;
               }
 
               listener(change);
-            }),
+            });
+          },
         }),
   };
 };

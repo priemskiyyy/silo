@@ -172,6 +172,31 @@ test("observers fall silent after dispose", () => {
   expect(listener).toHaveBeenCalledWith({ key: "key", value: "early" });
 });
 
+test.each(["sync", "async"])(
+  "observing after disposal does not subscribe to the backend (%s)",
+  (mode) => {
+    const provider = mapping();
+    const observe = vi.fn(provider.sync.observe);
+    const adapter =
+      mode === "async"
+        ? createStorageAdapter({ ...provider.async, observe })
+        : createStorageAdapter({ ...provider.sync, observe });
+    const listener = vi.fn();
+
+    adapter.dispose();
+    const stop = adapter.observe?.(listener);
+    provider.emit({ key: "theme", value: "late" });
+    stop?.();
+    stop?.();
+    adapter.dispose();
+
+    expect(observe).not.toHaveBeenCalled();
+    expect(listener).not.toHaveBeenCalled();
+    expect(provider.stop).not.toHaveBeenCalled();
+    expect(provider.dispose).toHaveBeenCalledOnce();
+  },
+);
+
 test("a disposed adapter refuses every operation with an error naming it", () => {
   const provider = mapping();
   const adapter = createStorageAdapter(provider.sync);
