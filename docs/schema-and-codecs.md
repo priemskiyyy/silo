@@ -4,19 +4,20 @@ description: "Declare stored values with value(): typed fallbacks, codecs, valid
 
 # Schema and codecs
 
-A schema is a flat object of `value(...)` entries, one per key of a storage.
-Each entry declares what the key holds, what it reads as when absent, how it is
-translated or validated on the way in, and how long it lives.
+Declare each value once, with its validator and fallback. Silo infers the value
+type from the validator; you do not need to repeat it in a type argument.
+This example uses Zod (`pnpm add zod`):
 
 ```ts
 import { value } from "@priemskiyyy/silo";
+import { z } from "zod";
 
-type Theme = "light" | "dark";
+const ThemeSchema = z.enum(["light", "dark"]);
 
-const schema = {
-  theme: value<Theme>({ fallback: "light" }),
-  visits: value({ fallback: 0 }),
-  token: value<string>(),
+const AppSchema = {
+  theme: value({ schema: ThemeSchema, fallback: "light" }),
+  visits: value({ schema: z.number().int().nonnegative(), fallback: 0 }),
+  token: value({ schema: z.string() }),
 };
 ```
 
@@ -38,45 +39,48 @@ import { Silo } from "@priemskiyyy/silo";
 import { memory } from "@priemskiyyy/silo-memory";
 
 const silo = new Silo({
-  storages: { default: { adapters: [memory()], schema } },
+  storages: { default: { adapters: [memory()], schema: AppSchema } },
 });
 
-silo.value("theme").get(); // Theme
+silo.value("theme").get(); // "light" | "dark"
 silo.value("visits").get(); // number
 silo.value("token").get(); // string | undefined
 ```
 
-A declared `fallback` carries into the type, so the key is never `undefined`.
-Without one, the compiler makes you handle absence. This is why `value` is a
-pair of overloads rather than one signature: the presence of the option, not
-its value, decides the type. `ValueDefinition<TValue, TFallback>` is what an
-entry is, with `TFallback` either `TValue` or `undefined`.
+A fallback removes `undefined` from the read type. Without one, the caller
+handles a missing value. The schema checks incoming stored data; TypeScript
+checks writes and the fallback.
 
-Two spellings, two results:
+If another part of your application needs the type, derive it from the same schema:
 
 ```ts
-value({ fallback: "light" }); // string, widened from the literal
-value<Theme>({ fallback: "light" }); // "light" | "dark"
+type Theme = z.infer<typeof ThemeSchema>;
 ```
 
-Pass the type argument whenever the fallback is one member of a union. With a
-`codec` or a `schema`, the value type comes from it and there is nothing to
-pass.
-
-`SiloSchema` is the constraint every schema literal satisfies, for a schema
-declared in its own file:
+For a reusable Silo schema, use `satisfies` to check its shape without widening
+its values to `unknown`:
 
 ```ts
 import type { SiloSchema } from "@priemskiyyy/silo";
 
-export const schema = {
-  theme: value<Theme>({ fallback: "light" }),
+export const PreferencesSchema = {
+  theme: value({ schema: ThemeSchema, fallback: "light" }),
 } satisfies SiloSchema;
 ```
 
-`satisfies` keeps each entry's own type; an annotation would widen every value
-to `unknown`. `InferSchema<typeof storages>` maps every address of a store to
-the type it reads as, when the application wants that object type elsewhere.
+Zod is optional. Simple values can infer their type from a fallback, or use an
+explicit type when no runtime validation is needed:
+
+```ts
+value({ fallback: 0 }); // number
+value({ fallback: "light" }); // string
+value<"light" | "dark">({ fallback: "light" }); // "light" | "dark"
+value<string>(); // string | undefined
+```
+
+These declarations trust data from storage. They do not validate it.
+`InferSchema<typeof storages>` is available when you need a type mapping every
+address in a store to its read value.
 
 ## Codecs
 
@@ -124,27 +128,27 @@ without a wrapper:
 import { value } from "@priemskiyyy/silo";
 import { z } from "zod";
 
-export const user = value({
-  schema: z.object({ id: z.string(), name: z.string() }),
-});
+const UserSchema = z.object({ id: z.string(), name: z.string() });
+
+export const user = value({ schema: UserSchema });
 ```
 
 ```ts [Valibot]
 import { value } from "@priemskiyyy/silo";
 import * as v from "valibot";
 
-export const user = value({
-  schema: v.object({ id: v.string(), name: v.string() }),
-});
+const UserSchema = v.object({ id: v.string(), name: v.string() });
+
+export const user = value({ schema: UserSchema });
 ```
 
 ```ts [ArkType]
 import { value } from "@priemskiyyy/silo";
 import { type } from "arktype";
 
-export const user = value({
-  schema: type({ id: "string", name: "string" }),
-});
+const UserSchema = type({ id: "string", name: "string" });
+
+export const user = value({ schema: UserSchema });
 ```
 
 :::
@@ -154,45 +158,45 @@ inferred from the validator. Add a `fallback` and the `| undefined` goes away.
 A schema that transforms, such as `z.coerce.number()`, is fine: the value type
 is the validator's output.
 
-`encode` stays the identity: the validator describes what is already there and
-the adapter owns serialization. An asynchronous validator is refused rather
-than making a decode awaitable, with an error naming the vendor that returned a
-promise.
+A schema validates incoming values only. Writes store the schema's output type
+as given, and the adapter handles serialization. Transforming schemas must also
+accept that stored output on the next read; use a codec when writing and reading
+need different conversions. Validators must be synchronous.
 
-The URL is where this earns its keep. A query parameter is edited by hand, so
-the [Fieldbook example](examples.md) validates its `filter` with a Zod enum: a
-value outside it reads as the fallback with a hydrate error, instead of
-reaching a component as a string that is not a `Filter`.
+For example, URL parameters arrive as text:
 
-## A key with neither validates nothing
+```ts
+const PageSchema = z.coerce.number().int().positive();
+const page = value({ schema: PageSchema, fallback: 1 });
+```
 
-::: danger Read this before typing an interface
-`value<User>()` declares what you **expect**. It checks nothing at runtime.
-With no `codec` and no `schema`, `decode` is the identity, so whatever the
-adapter hands back is returned as `User`, unexamined: a value written by an
-older release of your own application, by a browser extension, by another tab,
-or by a user editing devtools.
+`PageSchema` accepts `"2"` from the URL and returns the number `2`. It also
+accepts `2` if a structured adapter returns the stored number. See the complete
+[URL recipe](recipes.md#shareable-state-in-the-url).
 
-Compile-time typing and runtime validation are separate here on purpose. For a
-theme you own end to end, the identity is right and costs nothing. For
-anything crossing a trust boundary, add a `schema`.
+::: warning Types alone do not validate stored data
+`value<User>()` checks your TypeScript calls, but accepts anything returned by
+storage. Use a schema when older releases, other clients, or hand-edited data
+could supply an incompatible value.
 :::
 
 ## When decoding fails
 
-A stored value that will not decode is a normal, expected event: you changed a
-shape, or something else wrote the key. The policy is fixed, and it errs toward
-keeping data.
+If the initial stored value fails validation, Silo reports a hydration error
+and uses the fallback, or `undefined` if none was declared. It leaves the stored
+data untouched:
 
 ```ts
 import { z } from "zod";
+
+const UserSchema = z.object({ id: z.string(), name: z.string() });
 
 const profile = new Silo({
   storages: {
     default: {
       adapters: [memory()],
       schema: {
-        user: value({ schema: z.object({ id: z.string(), name: z.string() }) }),
+        user: value({ schema: UserSchema }),
       },
     },
   },
@@ -240,9 +244,9 @@ drop in as they are. Changing a format over data already written is a
 An adapter over a structured medium (memory, IndexedDB, Durable Object storage)
 stores the value as given, which is what keeps a `Date` alive without a codec.
 
-A codec is for the translation that is yours: a `Date` that has to survive
-JSON on a text medium, a `Set` written as an array, a number carried by a URL
-where every value arrives as text.
+Use a codec for application-specific conversion: a `Date` that has to survive
+JSON on a text medium, or a `Set` written as an array. For a number in a plain-text URL, a coercing
+schema is enough.
 
 ## What survives a round trip
 
