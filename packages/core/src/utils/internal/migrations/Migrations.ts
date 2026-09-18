@@ -49,7 +49,9 @@ export class Migrations {
   }
 
   /** The highest declared step, and the stored version once the chain has read it. */
-  inspectVersion = () => ({ ...this.#version });
+  inspectVersion() {
+    return { ...this.#version };
+  }
 
   start(
     migrations:
@@ -211,7 +213,7 @@ export class Migrations {
     }
   }
 
-  #assertSynchronous = (result: void | Promise<void>, name: string) => {
+  #assertSynchronous(result: void | Promise<void>, name: string) {
     if (!result || typeof result.then !== "function") {
       return;
     }
@@ -220,7 +222,7 @@ export class Migrations {
     throw new Error(
       `Silo cannot await ${name} on the synchronous ${this.#options.backends.default.adapter.name} adapter: a step that returns a promise needs an asynchronous adapter.`,
     );
-  };
+  }
 
   #handleDone = () => {
     if (this.#lifecycle === "DISPOSED") {
@@ -251,7 +253,7 @@ export class Migrations {
     this.#trace("migration version", () => ({ version }));
   }
 
-  #trace = (type: string, context: () => unknown) => {
+  #trace(type: string, context: () => unknown) {
     const { diagnostics } = this.#options;
     if (!diagnostics.recording) {
       return;
@@ -263,7 +265,7 @@ export class Migrations {
       key: null,
       context: context(),
     });
-  };
+  }
 
   #assertActive = () => {
     if (this.#lifecycle === "DISPOSED") {

@@ -82,16 +82,16 @@ export class SiloValues<TStorages extends Storages> {
     }
   }
 
-  acquire = <TKey extends KeyOf<TStorages>>(
+  acquire<TKey extends KeyOf<TStorages>>(
     path: TKey,
     segments: string[],
-  ): SiloValue<InferValue<DefinitionOf<TStorages, TKey>>> => {
+  ): SiloValue<InferValue<DefinitionOf<TStorages, TKey>>> {
     const record = this.#record(path, segments);
     record.hydrate();
     return typedValue(record);
-  };
+  }
 
-  clear = async (segments: string[]): Promise<void> => {
+  async clear(segments: string[]): Promise<void> {
     this.#assertActive();
     // Skip hydration for records that are about to be removed.
     const records = [...this.#entries.keys()].map((path) =>
@@ -99,7 +99,7 @@ export class SiloValues<TStorages extends Storages> {
     );
     records.forEach((record) => record.remove());
     return this.#barrier(records);
-  };
+  }
 
   async flush(): Promise<void> {
     this.#assertActive();
@@ -163,7 +163,7 @@ export class SiloValues<TStorages extends Storages> {
     return { storages, records };
   }
 
-  handleStorageChange = (storage: string, change: StorageChange) => {
+  handleStorageChange(storage: string, change: StorageChange) {
     const records = this.#backings.get(storage)?.records;
 
     if (this.#disposed || records === undefined) {
@@ -176,7 +176,7 @@ export class SiloValues<TStorages extends Storages> {
     }
 
     records.get(change.key)?.receive(change.value);
-  };
+  }
 
   dispose = () => {
     if (this.#disposed) {
@@ -192,11 +192,11 @@ export class SiloValues<TStorages extends Storages> {
     this.#diagnostics.changed();
   };
 
-  #assertActive = () => {
+  #assertActive() {
     if (this.#disposed) {
       throw new Error("This Silo was disposed.");
     }
-  };
+  }
 
   #select(segments: string[]) {
     const selected: Array<{
@@ -216,7 +216,7 @@ export class SiloValues<TStorages extends Storages> {
     return selected;
   }
 
-  #record = (path: string, segments: string[]): ValueRecord => {
+  #record(path: string, segments: string[]) {
     this.#assertActive();
     const entry = this.#entries.get(path);
 
@@ -252,7 +252,7 @@ export class SiloValues<TStorages extends Storages> {
       });
     }
     return record;
-  };
+  }
 
   #barrier(records: Iterable<ValueRecord>): Promise<void> {
     const waiting: Promise<void>[] = [];

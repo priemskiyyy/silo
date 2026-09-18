@@ -19,34 +19,37 @@ export class Backend {
     this.execution = { mode: options.execution?.mode ?? options.adapter.mode };
   }
 
-  get = (
+  get(
     key: string,
     observer: {
       value: (raw: unknown) => void;
       error: (error: unknown) => void;
     },
-  ) =>
+  ) {
     this.#execute(() => this.adapter.get(key), observer.value, observer.error);
+  }
 
-  set = (key: string, raw: unknown, observer: WriteObserver) =>
+  set(key: string, raw: unknown, observer: WriteObserver) {
     this.#execute(
       () => this.adapter.set(key, raw),
       observer.done,
       observer.error,
     );
+  }
 
-  remove = (key: string, observer: WriteObserver) =>
+  remove(key: string, observer: WriteObserver) {
     this.#execute(
       () => this.adapter.remove(key),
       observer.done,
       observer.error,
     );
+  }
 
-  #execute = (
+  #execute(
     call: () => unknown,
     handleResult: (result: unknown) => void,
     handleError: (error: unknown) => void,
-  ) => {
+  ) {
     let result: unknown;
     try {
       result = call();
@@ -72,5 +75,5 @@ export class Backend {
       return;
     }
     assertUnreachable(this.execution.mode);
-  };
+  }
 }

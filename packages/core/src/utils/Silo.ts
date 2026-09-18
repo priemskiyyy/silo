@@ -143,7 +143,7 @@ export class Silo<TStorages extends Storages = Storages> {
     };
   }
 
-  #scope = (parents: string[], segment: string): SiloScope<TStorages> => {
+  #scope(parents: string[], segment: string): SiloScope<TStorages> {
     Keyspace.assertSegment(segment);
     const segments = [...parents, segment];
 
@@ -153,5 +153,5 @@ export class Silo<TStorages extends Storages = Storages> {
       clear: () => this.#values.clear(segments),
       release: () => this.#values.release(segments),
     };
-  };
+  }
 }
