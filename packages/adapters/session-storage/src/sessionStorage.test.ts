@@ -164,9 +164,9 @@ test("blocked site data reads as an absent platform", () => {
 });
 
 test("a silo persists through this adapter and rehydrates from it", () => {
-  const schema = { theme: value<string>({ fallback: "light" }) };
+  const Schema = { theme: value<string>({ fallback: "light" }) };
   const silo = new Silo({
-    storages: { default: { adapters: [sessionStorage()], schema: schema } },
+    storages: { default: { adapters: [sessionStorage()], schema: Schema } },
   });
 
   silo.value("theme").set("dark");
@@ -177,7 +177,7 @@ test("a silo persists through this adapter and rehydrates from it", () => {
   ).toBe('"dark"');
 
   const reloaded = new Silo({
-    storages: { default: { adapters: [sessionStorage()], schema: schema } },
+    storages: { default: { adapters: [sessionStorage()], schema: Schema } },
   });
 
   expect(

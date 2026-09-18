@@ -3,12 +3,12 @@ import { createMockAdapter } from "src/mock/createMockAdapter";
 import { Silo } from "src/utils/Silo";
 import { value } from "src/utils/value";
 
-const schema = { count: value({ fallback: 0 }) };
+const Schema = { count: value({ fallback: 0 }) };
 
 test("flush creates no demand and does not wait for clean records to hydrate", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   await silo.flush();
   expect(mock.calls).toEqual([]);
@@ -25,7 +25,7 @@ test("flush creates no demand and does not wait for clean records to hydrate", a
 test("flush waits for captured writes and excludes a later write to a clean record", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const first = silo.scope("first").value("count");
   const second = silo.scope("second").value("count");

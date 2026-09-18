@@ -10,7 +10,7 @@ import { useSiloStatus } from "src/hooks/useSiloStatus";
 import { useValue } from "src/hooks/useValue";
 import { useValueStatus } from "src/hooks/useValueStatus";
 
-const schema = {
+const Schema = {
   theme: value<"light" | "dark">({ fallback: "light" }),
 };
 
@@ -18,7 +18,7 @@ test("SSR renders the fallback, writes nothing, and hydrates without a mismatch"
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const onRecoverableError = vi.fn();
   const View = () => {

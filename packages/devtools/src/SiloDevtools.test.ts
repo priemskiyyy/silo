@@ -11,7 +11,7 @@ afterEach(() => {
 
 const macrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-const schema = { theme: value({ fallback: "light" }) };
+const Schema = { theme: value({ fallback: "light" }) };
 
 const createStore = () => {
   const local = createMockAdapter({
@@ -25,7 +25,7 @@ const createStore = () => {
   const silo = new Silo({
     namespace: "app",
     storages: {
-      default: { adapters: [local.adapter], schema },
+      default: { adapters: [local.adapter], schema: Schema },
       secure: {
         adapters: [secure.adapter],
         schema: { token: value<string>() },
@@ -282,10 +282,10 @@ test("the sidebar marks a memory floor, the header shows the version, and an asy
   const mock = createMockAdapter({ mode: "async" });
   const silo = new Silo({
     storages: {
-      default: { adapters: [mock.adapter], schema },
+      default: { adapters: [mock.adapter], schema: Schema },
       session: {
         adapters: [{ ...memory.adapter, name: "memory" }],
-        schema,
+        schema: Schema,
       },
     },
     migrations: { 2: async () => undefined },

@@ -6,7 +6,7 @@ import type { ValueDefinition } from "src/types/ValueDefinition";
  *
  * @example
  * ```ts
- * type Value = InferValue<typeof schema.theme>;
+ * type Value = InferValue<typeof Schema.theme>;
  * ```
  */
 export type InferValue<TDefinition> =

@@ -35,7 +35,7 @@ export function value<TValue>(
 export function value(
   options: ValueOptions<unknown> & { fallback?: unknown } = {},
 ): ValueDefinition<unknown> {
-  const { codec, schema } = options;
+  const { codec, schema: Schema } = options;
 
   return {
     fallback: options.fallback,
@@ -50,20 +50,20 @@ export function value(
       if (codec !== undefined) {
         return codec.decode(raw);
       }
-      if (schema === undefined) {
+      if (Schema === undefined) {
         return raw;
       }
-      const result = schema["~standard"].validate(raw);
+      const result = Schema["~standard"].validate(raw);
       if ("then" in result) {
         // Reject async validation without leaving its promise unhandled.
         Promise.resolve(result).catch(() => {});
         throw new Error(
-          `Silo cannot decode with an asynchronous schema: ${schema["~standard"].vendor} returned a promise from validate.`,
+          `Silo cannot decode with an asynchronous schema: ${Schema["~standard"].vendor} returned a promise from validate.`,
         );
       }
       if (result.issues !== undefined) {
         throw new Error(
-          `Silo could not decode a stored value with the ${schema["~standard"].vendor} schema: ${result.issues.map((issue) => issue.message).join("; ")}`,
+          `Silo could not decode a stored value with the ${Schema["~standard"].vendor} schema: ${result.issues.map((issue) => issue.message).join("; ")}`,
         );
       }
       return result.value;

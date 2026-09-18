@@ -15,7 +15,7 @@ import { useValueStatus } from "src/hooks/useValueStatus";
 type Theme = "light" | "dark";
 type User = { id: string };
 
-const schema = {
+const Schema = {
   theme: value<Theme>({ fallback: "light" }),
   user: value<User>(),
   count: value({ fallback: 0 }),
@@ -40,7 +40,7 @@ const syncHarness = (stored: Record<string, unknown> = {}) => {
     mock.store.set(key, stored),
   );
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   return { mock, silo, wrapper: wrapperFor(silo) };
@@ -52,7 +52,7 @@ const asyncHarness = (stored: Record<string, unknown> = {}) => {
     mock.store.set(key, stored),
   );
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   return { mock, silo, wrapper: wrapperFor(silo) };
@@ -224,7 +224,7 @@ describe("useValue", () => {
     const mock = createMockAdapter({ mode: "async", hold: true });
     mock.store.set("silo:count", 100);
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     });
     const { result } = renderHook(() => useValue("count"), {
       wrapper: wrapperFor(silo),
@@ -351,7 +351,7 @@ describe("useSiloStatus", () => {
   test("follows the store from migrating to ready without touching a value", async () => {
     const mock = createMockAdapter({ mode: "async" });
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema: schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
       migrations: { 1: async (store) => await store.set("theme", "dark") },
     });
     const handleChange = vi.fn();
@@ -371,7 +371,7 @@ describe("useSiloStatus", () => {
   test("reports a failed migration with the migrate phase", () => {
     const mock = createMockAdapter();
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema: schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
       migrations: {
         1: () => {
           throw new Error("migration 1 failed");

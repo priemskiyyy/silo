@@ -254,16 +254,16 @@ type Theme = "light" | "dark";
 type User = { name: string };
 
 declare const widened: ValueDefinition<string>;
-declare const userSchema: StandardSchema<User>;
+declare const UserSchema: StandardSchema<User>;
 
-const schema = {
+const Schema = {
   theme: value<Theme>({ fallback: "light" }),
   user: value<User>(),
-  validated: value({ schema: userSchema }),
+  validated: value({ schema: UserSchema }),
   widened,
 };
 
-const storages = { default: { adapters: [memory()], schema } };
+const storages = { default: { adapters: [memory()], schema: Schema } };
 const silo = new Silo({ storages });
 
 // a defaulted key's get() is Theme, with no \`| undefined\`
@@ -289,9 +289,9 @@ expectType<Equal<SiloValue<Theme>["get"], () => Theme>>(true);
 // silo.native carries the adapter's exact native type
 expectType<Equal<typeof silo.native, { default: MemoryStore }>>(true);
 expectType<Equal<typeof asyncSilo.native, { default: IndexedDbHandle }>>(true);
-const web = new Silo({ storages: { default: { adapters: [localStorage()], schema: schema } } });
+const web = new Silo({ storages: { default: { adapters: [localStorage()], schema: Schema } } });
 expectType<Equal<typeof web.native, { default: Storage | null }>>(true);
-const session = new Silo({ storages: { default: { adapters: [sessionStorage()], schema: schema } } });
+const session = new Silo({ storages: { default: { adapters: [sessionStorage()], schema: Schema } } });
 expectType<Equal<typeof session.native, { default: Storage | null }>>(true);
 
 // status shapes, scope, clear
@@ -312,8 +312,8 @@ expectType<Equal<ReturnType<typeof silo.release>, Promise<void>>>(true);
 // a mock is assignable wherever a real adapter is
 const syncMock = createMockAdapter();
 const asyncMock = createMockAdapter({ mode: "async" });
-new Silo({ storages: { default: { adapters: [syncMock.adapter], schema: schema } } });
-new Silo({ storages: { default: { adapters: [asyncMock.adapter], schema: schema } } });
+new Silo({ storages: { default: { adapters: [syncMock.adapter], schema: Schema } } });
+new Silo({ storages: { default: { adapters: [asyncMock.adapter], schema: Schema } } });
 const asSync: SyncStorageAdapter<unknown> = syncMock.adapter;
 const asAsync: AsyncStorageAdapter<unknown> = asyncMock.adapter;
 const asEither: StorageAdapter = asSync;
@@ -347,19 +347,19 @@ const asyncMigration: AsyncMigration = async (store: AsyncMigrationStore) => {
   await store.remove("legacy");
   void keys;
 };
-new Silo({ storages: { default: { adapters: [memory()], schema: schema } }, migrations: { 2: syncMigration } });
-new Silo({ storages: { default: { adapters: [indexedDb({ name: "acme" })], schema: schema } }, migrations: { 2: asyncMigration } });
-new Silo({ storages: { default: { adapters: [indexedDb(), memory()], schema: schema } }, migrations: { 2: asyncMigration } });
-new Silo({ storages: { default: { adapters: [localStorage(), memory()], schema: schema } }, migrations: { 2: syncMigration } });
+new Silo({ storages: { default: { adapters: [memory()], schema: Schema } }, migrations: { 2: syncMigration } });
+new Silo({ storages: { default: { adapters: [indexedDb({ name: "acme" })], schema: Schema } }, migrations: { 2: asyncMigration } });
+new Silo({ storages: { default: { adapters: [indexedDb(), memory()], schema: Schema } }, migrations: { 2: asyncMigration } });
+new Silo({ storages: { default: { adapters: [localStorage(), memory()], schema: Schema } }, migrations: { 2: syncMigration } });
 // a list of adapters is chosen from at construction and typed as a whole
-const chained = new Silo({ storages: { default: { adapters: [localStorage(), memory()], schema: schema } } });
+const chained = new Silo({ storages: { default: { adapters: [localStorage(), memory()], schema: Schema } } });
 expectType<Equal<typeof chained.native, { default: Storage | null | MemoryStore }>>(true);
-const chainedNative = new Silo({ storages: { default: { adapters: [indexedDb(), localStorage(), memory()], schema: schema } } });
+const chainedNative = new Silo({ storages: { default: { adapters: [indexedDb(), localStorage(), memory()], schema: Schema } } });
 expectType<Equal<typeof chainedNative.native, { default: IndexedDbHandle | Storage | null | MemoryStore }>>(true);
 // several storages: one native per name, keys addressed as storage.key, the migration flavour decided across all of them
 const multi = new Silo({
   storages: {
-    default: { adapters: [localStorage(), memory()], schema },
+    default: { adapters: [localStorage(), memory()], schema: Schema },
     secure: { adapters: [indexedDb()], schema: { token: value<string>(), theme: value<Theme>({ fallback: "dark" }) } },
   },
   migrations: { 2: async (store) => { await store.move("token", { to: "secure" }); } },
@@ -370,15 +370,15 @@ expectType<Equal<ReturnType<typeof multi.value<"theme">>["get"], () => Theme>>(t
 // @ts-expect-error a key is addressed through the storage that declares it
 multi.value("token");
 // @ts-expect-error a mixed set of storages only takes asynchronous migrations
-new Silo({ storages: { default: { adapters: [memory()], schema }, secure: { adapters: [indexedDb()], schema } }, migrations: { 2: syncMigration } });
+new Silo({ storages: { default: { adapters: [memory()], schema: Schema }, secure: { adapters: [indexedDb()], schema: Schema } }, migrations: { 2: syncMigration } });
 // @ts-expect-error every store declares a default storage
-new Silo({ storages: { secure: { adapters: [memory()], schema } } });
+new Silo({ storages: { secure: { adapters: [memory()], schema: Schema } } });
 // @ts-expect-error a synchronous list only takes synchronous migrations
-new Silo({ storages: { default: { adapters: [memory()], schema: schema } }, migrations: { 2: asyncMigration } });
+new Silo({ storages: { default: { adapters: [memory()], schema: Schema } }, migrations: { 2: asyncMigration } });
 // @ts-expect-error a synchronous list only takes synchronous migrations, however long it is
-new Silo({ storages: { default: { adapters: [localStorage(), memory()], schema: schema } }, migrations: { 2: asyncMigration } });
+new Silo({ storages: { default: { adapters: [localStorage(), memory()], schema: Schema } }, migrations: { 2: asyncMigration } });
 // @ts-expect-error a mixed list is an asynchronous store and only takes asynchronous migrations
-new Silo({ storages: { default: { adapters: [indexedDb(), memory()], schema: schema } }, migrations: { 2: syncMigration } });
+new Silo({ storages: { default: { adapters: [indexedDb(), memory()], schema: Schema } }, migrations: { 2: syncMigration } });
 // keys is the second optional adapter member, in the adapter's own mode
 expectType<Equal<NonNullable<SyncStorageAdapter["keyspace"]>["namespace"], "visible" | "hidden">>(true);
 expectType<Equal<ReturnType<NonNullable<SyncStorageAdapter["keys"]>>, string[]>>(true);
@@ -395,10 +395,10 @@ expectType<Equal<ValueDefinition<string>["expires"], Expiration | undefined>>(tr
 // @ts-expect-error expiry cannot specify both a lifetime and a deadline
 void value({ expires: { in: 1000, at: 5000 } });
 // @ts-expect-error codec and schema are exclusive
-void value({ codec, schema: userSchema });
-expectType<Equal<InferSchema<{ default: { adapters: []; schema: { theme: typeof schema.theme } } }>, { theme: Theme }>>(true);
-const checkSchema: SiloSchema = schema;
-void checkSchema;
+void value({ codec, schema: UserSchema });
+expectType<Equal<InferSchema<{ default: { adapters: []; schema: { theme: typeof Schema.theme } } }>, { theme: Theme }>>(true);
+const CheckSchema: SiloSchema = Schema;
+void CheckSchema;
 void createStorageAdapter;
 void testStorageAdapter;
 const change: StorageChange = { key: null };
@@ -439,14 +439,14 @@ const expectType = <T extends true>(_: T): void => undefined;
 type Theme = "light" | "dark";
 type User = { name: string };
 
-const schema = {
+const Schema = {
   theme: value<Theme>({ fallback: "light" }),
   user: value<User>(),
   count: value({ fallback: 0 }),
   callback: value<() => string>(),
 };
 
-const storages = { default: { adapters: [localStorage()], schema } };
+const storages = { default: { adapters: [localStorage()], schema: Schema } };
 const silo = new Silo({ storages });
 
 declare module "@priemskiyyy/silo-react" {
@@ -654,8 +654,8 @@ import { indexedDb } from "@priemskiyyy/silo-indexeddb";
 
 assert.equal(typeof globalThis.window, "undefined", "must run with no DOM");
 
-const schema = { theme: value({ fallback: "light" }), user: value() };
-const secureSchema = { token: value() };
+const Schema = { theme: value({ fallback: "light" }), user: value() };
+const SecureSchema = { token: value() };
 
 // Every adapter constructs cold off the browser.
 for (const make of [memory, localStorage, sessionStorage, indexedDb]) {
@@ -669,7 +669,7 @@ for (const make of [memory, localStorage, sessionStorage, indexedDb]) {
 // A real round trip through memory, including a scope, a second storage and the physical key.
 const adapter = memory();
 const secure = memory();
-const silo = new Silo({ storages: { default: { adapters: [adapter], schema }, secure: { adapters: [secure], schema: secureSchema } } });
+const silo = new Silo({ storages: { default: { adapters: [adapter], schema: Schema }, secure: { adapters: [secure], schema: SecureSchema } } });
 silo.value("theme").set("dark");
 silo.value("secure.token").set("t");
 assert.equal(secure.native.get("silo:token"), "t", "a key lives in the storage that declares it");
@@ -686,7 +686,7 @@ silo.dispose();
 
 // The mock is assignable where a real adapter is, and the barrels load off the browser.
 const mock = createMockAdapter({ mode: "sync" });
-const mocked = new Silo({ storages: { default: { adapters: [mock.adapter], schema } } });
+const mocked = new Silo({ storages: { default: { adapters: [mock.adapter], schema: Schema } } });
 assert.equal(mocked.value("theme").get(), "light");
 mocked.dispose();
 assert.equal(typeof createStorageAdapter, "function");

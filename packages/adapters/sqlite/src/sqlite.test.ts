@@ -113,16 +113,16 @@ test("values survive a new adapter over the same connection, and dispose leaves 
 
 test("a silo persists through this adapter and rehydrates from it synchronously", () => {
   const database = new DatabaseSync(":memory:");
-  const schema = { theme: value<"light" | "dark">({ fallback: "light" }) };
+  const Schema = { theme: value<"light" | "dark">({ fallback: "light" }) };
   const writer = new Silo({
-    storages: { default: { adapters: [sqlite({ database })], schema } },
+    storages: { default: { adapters: [sqlite({ database })], schema: Schema } },
   });
 
   writer.value("theme").set("dark");
   writer.dispose();
 
   const reader = new Silo({
-    storages: { default: { adapters: [sqlite({ database })], schema } },
+    storages: { default: { adapters: [sqlite({ database })], schema: Schema } },
   });
 
   expect(reader.value("theme").get()).toBe("dark");

@@ -4,7 +4,7 @@ import { createMockAdapter } from "src/mock/createMockAdapter";
 import { Silo } from "src/utils/Silo";
 import { value } from "src/utils/value";
 
-const schema = { theme: value({ fallback: "light" }) };
+const Schema = { theme: value({ fallback: "light" }) };
 
 const macrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -20,7 +20,7 @@ test("the snapshot names each storage's winner, mode and namespace, and reading 
   const silo = new Silo({
     namespace: "app",
     storages: {
-      default: { adapters: [local.adapter], schema },
+      default: { adapters: [local.adapter], schema: Schema },
       secure: {
         adapters: [secure.adapter],
         schema: { token: value<string>() },
@@ -46,7 +46,7 @@ test("the snapshot names each storage's winner, mode and namespace, and reading 
 test("a record appears once reached, with its identity, snapshot and write counters", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.scope("users:7").value("theme");
   const before = silo.diagnostics.get();
@@ -86,7 +86,7 @@ test("a record appears once reached, with its identity, snapshot and write count
 test("record creation is visible from its diagnostic event even after a cached empty snapshot", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   expect(silo.diagnostics.get().records).toEqual([]);
   const seen: string[][] = [];
@@ -107,7 +107,7 @@ test.each(["record created", "scope released"])(
   async (type) => {
     const mock = createMockAdapter();
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     });
     const scope = silo.scope("account");
     const contexts: unknown[] = [];
@@ -169,7 +169,7 @@ test.each([
       ? createMockAdapter({ mode, onCall })
       : createMockAdapter({ onCall });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   await theme.hydrated();
@@ -203,7 +203,7 @@ test.each([
 test("migration events and status listeners read the version and status being announced", async () => {
   const mock = createMockAdapter({ mode: "async" });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: { 1: () => {} },
   });
   silo.diagnostics.get();
@@ -237,7 +237,7 @@ test("migration failure is visible in diagnostics during its status and event no
   const mock = createMockAdapter({ mode: "async" });
   const failure = new Error("migration failed");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: {
       1: () => {
         silo.diagnostics.get();
@@ -266,7 +266,7 @@ test("changes notify once per microtask and events say what happened, in order",
   const mock = createMockAdapter();
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const events: SiloDiagnosticEvent[] = [];
   let notifications = 0;
@@ -307,7 +307,7 @@ test("a refused write, an outside change and a dropped one are each an event", (
     },
   });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const events: SiloDiagnosticEvent[] = [];
   record(silo, events);
@@ -332,7 +332,7 @@ test("migrations report each step and version, and disposal is the last event", 
   const mock = createMockAdapter();
   mock.store.set("silo::version", 1);
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: { 2: () => undefined, 3: () => undefined },
   });
   const events: SiloDiagnosticEvent[] = [];
@@ -350,7 +350,7 @@ test("migrations report each step and version, and disposal is the last event", 
 test("an asynchronous chain reports live", async () => {
   const mock = createMockAdapter({ mode: "async" });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: { 2: async () => undefined },
   });
   const events: SiloDiagnosticEvent[] = [];
@@ -374,7 +374,7 @@ test("disposal from a migration event prevents the announced step from running",
   const mock = createMockAdapter({ mode: "async" });
   const migrate = vi.fn();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: { 1: migrate },
   });
   silo.diagnostics.events.subscribe((event) => {
@@ -449,7 +449,7 @@ test.each(["silo:theme", null])(
 test("a rejected diagnostics listener is reported without interrupting other listeners", async () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const errors: Array<() => void> = [];
@@ -475,7 +475,7 @@ test("a rejected diagnostics listener is reported without interrupting other lis
 test("disposal releases the registry and closes diagnostics after one final notification", async () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.scope("account").value("theme");
   theme.set("dark");
@@ -525,7 +525,7 @@ test("diagnostics closes even when an adapter throws during disposal", () => {
             },
           },
         ],
-        schema,
+        schema: Schema,
       },
     },
   });
@@ -542,7 +542,7 @@ test("diagnostics closes even when an adapter throws during disposal", () => {
 test("diagnostics shares unchanged summaries and reads the committed value inside notifications", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   silo.scope("other").value("theme");
@@ -562,7 +562,7 @@ test("diagnostics shares unchanged summaries and reads the committed value insid
 test("event observation can stop and resume independently of snapshot observation", async () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const snapshots = vi.fn();
@@ -601,7 +601,7 @@ test("event observation can stop and resume independently of snapshot observatio
 test("replacing an event listener during a write preserves event order", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const first: SiloDiagnosticEvent[] = [];
@@ -635,7 +635,7 @@ test.each([
     const mock = createMockAdapter({ mode: "async", hold: true });
     mock.store.set("silo:theme", "stored");
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     });
     const theme = silo.value("theme");
     mock.calls[0]?.settle();
@@ -687,7 +687,7 @@ test.each([
 test("release from write acceptance waits for persistence before detaching the scope", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const scope = silo.scope("account");
   const theme = scope.value("theme");
@@ -723,7 +723,7 @@ test("a queue closed by migration failure reports refusal without announcing acc
   const mock = createMockAdapter();
   const failure = new Error("migration failed");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: {
       1: () => {
         throw failure;
@@ -754,7 +754,7 @@ test.each(["sync", "async"])(
     const mock =
       mode === "async" ? createMockAdapter({ mode }) : createMockAdapter();
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     });
     const theme = silo.value("theme");
     await theme.hydrated();
@@ -829,7 +829,7 @@ test("reacquiring during an external update preserves the pending hydration read
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "older");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const inspected = vi.fn();
@@ -855,7 +855,7 @@ test("a reload from a hydration event supersedes the result being announced", as
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "older");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const stop = silo.diagnostics.events.subscribe((event) => {
@@ -887,7 +887,7 @@ test.each(["silo:theme", null])(
     const mock = createMockAdapter({ mode: "async", hold: true });
     mock.store.set("silo:theme", "initial");
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     });
     const theme = silo.value("theme");
     mock.calls[0]?.settle();
@@ -926,7 +926,7 @@ test.each(["hydrate landed", "outside applied"])(
     const mock = createMockAdapter({ mode: "async", hold: true });
     mock.store.set("silo:theme", "stored");
     const silo = new Silo({
-      storages: { default: { adapters: [mock.adapter], schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     });
     const theme = silo.value("theme");
     silo.diagnostics.events.subscribe((event) => {

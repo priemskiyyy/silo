@@ -230,7 +230,7 @@ quiet-hours toggle. Declare the lifetime on the key and the store handles
 expiry when data is next loaded:
 
 ```ts
-const schema = {
+const Schema = {
   bannerDismissed: value({
     fallback: false,
     expires: { in: 7 * 24 * 60 * 60 * 1000 },
@@ -297,7 +297,7 @@ migration store speaks in namespace-relative keys and knows every storage:
 ```ts
 export const silo = new Silo({
   storages: {
-    default: { adapters: [localStorage(), memory()], schema },
+    default: { adapters: [localStorage(), memory()], schema: Schema },
     secure: {
       adapters: [indexedDb({ name: "acme" }), memory()],
       schema: { token: value<string>() },
@@ -332,12 +332,15 @@ import { redis } from "@priemskiyyy/silo-redis";
 
 const client = new Redis(process.env.REDIS_URL);
 
-const schema = { locale: value({ fallback: "en" }) };
+const Schema = { locale: value({ fallback: "en" }) };
 
 export const handle = async (request: Request) => {
   const silo = new Silo({
     storages: {
-      default: { adapters: [redis({ client, match: "silo:*" })], schema },
+      default: {
+        adapters: [redis({ client, match: "silo:*" })],
+        schema: Schema,
+      },
     },
   });
 

@@ -40,7 +40,7 @@ import { indexedDb } from "@priemskiyyy/silo-indexeddb";
 
 const silo = new Silo({
   storages: {
-    default: { adapters: [localStorage(), memory()], schema },
+    default: { adapters: [localStorage(), memory()], schema: Schema },
     journal: {
       adapters: [indexedDb({ name: "acme" }), memory()],
       schema: entries,
@@ -170,7 +170,7 @@ import { redis } from "@priemskiyyy/silo-redis";
 const client = new Redis(process.env.REDIS_URL);
 const server = new Silo({
   storages: {
-    default: { adapters: [redis({ client, match: "silo:*" })], schema },
+    default: { adapters: [redis({ client, match: "silo:*" })], schema: Schema },
   },
 });
 

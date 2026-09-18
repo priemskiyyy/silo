@@ -15,7 +15,7 @@ On a synchronous storage, hydration happens inside `silo.value(key)`, before
 the handle is returned:
 
 ```text
-frame 0  new Silo({ storages: { default: { adapters: [localStorage()], schema } } })
+frame 0  new Silo({ storages: { default: { adapters: [localStorage()], schema: Schema } } })
 frame 0  silo.value("theme")   -> adapter.get("silo:theme") -> "dark"
                                   status: ready
 frame 0  theme.get()           -> "dark"          the persisted value
@@ -25,7 +25,7 @@ On an asynchronous storage the read cannot finish in that frame, so the
 snapshot holds the fallback until it does:
 
 ```text
-frame 0  new Silo({ storages: { default: { adapters: [indexedDb()], schema } } })
+frame 0  new Silo({ storages: { default: { adapters: [indexedDb()], schema: Schema } } })
 frame 0  silo.value("theme")   -> adapter.get("silo:theme") -> Promise
                                   status: hydrating
 frame 0  theme.get()           -> "light"         the fallback
@@ -98,7 +98,7 @@ even on a device where a synchronous candidate won.
 ```ts
 const silo = new Silo({
   storages: {
-    default: { adapters: [localStorage(), memory()], schema }, // synchronous
+    default: { adapters: [localStorage(), memory()], schema: Schema }, // synchronous
     journal: { adapters: [indexedDb(), memory()], schema: entries }, // asynchronous, even when memory wins
   },
 });

@@ -65,7 +65,7 @@ export type MockAdapterOptions = {
  * @example
  * ```ts
  * const mock = createMockAdapter({ mode: "async", hold: true });
- * const silo = new Silo({ storages: { default: { adapters: [mock.adapter], schema } } });
+ * const silo = new Silo({ storages: { default: { adapters: [mock.adapter], schema: Schema } } });
  * mock.calls.at(-1)?.settle();
  * mock.emit({ key: "silo:theme", value: "dark" });
  * ```

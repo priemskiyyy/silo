@@ -4,7 +4,7 @@ import { value } from "src/utils/value";
 
 // A hand-rolled Standard Schema, so the test does not depend on a validator
 // library while proving the contract is the one Zod, Valibot and ArkType ship.
-const stringSchema: StandardSchema<string> = {
+const StringSchema: StandardSchema<string> = {
   "~standard": {
     version: 1,
     vendor: "test",
@@ -72,7 +72,7 @@ test("a throwing codec throws through the definition", () => {
 });
 
 test("a schema validates on decode, passes encode through, and names its issues", () => {
-  const name = value({ schema: stringSchema, fallback: "anonymous" });
+  const name = value({ schema: StringSchema, fallback: "anonymous" });
 
   expect(name.fallback).toBe("anonymous");
   expect(name.encode("ada")).toBe("ada");
@@ -97,7 +97,7 @@ test("an asynchronous schema is refused rather than making decode awaitable", ()
 });
 
 test("a rejected asynchronous schema is contained after decoding refuses it", async () => {
-  const schema: StandardSchema<string> = {
+  const Schema: StandardSchema<string> = {
     "~standard": {
       version: 1,
       vendor: "rejected",
@@ -105,7 +105,7 @@ test("a rejected asynchronous schema is contained after decoding refuses it", as
     },
   };
 
-  expect(() => value({ schema }).decode("x")).toThrow(
+  expect(() => value({ schema: Schema }).decode("x")).toThrow(
     "Silo cannot decode with an asynchronous schema",
   );
   await new Promise((resolve) => setImmediate(resolve));

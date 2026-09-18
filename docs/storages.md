@@ -66,7 +66,7 @@ const storages = {
   default: {
     // Fall back when localStorage is absent or access to it is blocked.
     adapters: [localStorage(), memory()],
-    schema,
+    schema: Schema,
   },
 };
 ```
@@ -160,7 +160,7 @@ url: {
   // If the URL is unavailable, memory wins and keys carry the prefix; if the
   // URL wins, its declaration hides it. Either way the link stays clean.
   adapters: [searchParams(), memory()],
-  schema: { filter: value<"all" | "starred">({ fallback: "all" }) },
+  Schema: { filter: value<"all" | "starred">({ fallback: "all" }) },
 },
 ```
 

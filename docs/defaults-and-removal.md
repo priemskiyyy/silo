@@ -72,7 +72,7 @@ Declare object fallbacks once, at module scope, and never mutate them:
 ```ts
 const EMPTY_SUPPLIES: ReadonlyMap<string, number> = new Map();
 
-const schema = {
+const Schema = {
   supplies: value<ReadonlyMap<string, number>>({ fallback: EMPTY_SUPPLIES }),
 };
 ```

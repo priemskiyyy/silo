@@ -56,7 +56,7 @@ import { expect, test } from "vitest";
 import { Silo, value } from "@priemskiyyy/silo";
 import { createMockAdapter } from "@priemskiyyy/silo/mock";
 
-const schema = {
+const Schema = {
   theme: value<"light" | "dark">({ fallback: "light" }),
 };
 
@@ -64,7 +64,7 @@ test("a synchronous store reads persisted data on the first get", () => {
   const mock = createMockAdapter();
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   expect(silo.value("theme").get()).toBe("dark");
@@ -95,7 +95,7 @@ import {
   useValueStatus,
 } from "@priemskiyyy/silo-react";
 
-const schema = {
+const Schema = {
   theme: value<"light" | "dark">({ fallback: "light" }),
 };
 
@@ -110,7 +110,7 @@ test("the value renders loading until hydration lands", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   render(
@@ -155,14 +155,14 @@ import { expect, test } from "vitest";
 import { Silo, value } from "@priemskiyyy/silo";
 import { createMockAdapter } from "@priemskiyyy/silo/mock";
 
-const schema = {
+const Schema = {
   theme: value<"light" | "dark">({ fallback: "light" }),
 };
 
 test("a change from another tab reaches the value", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
 
@@ -196,7 +196,7 @@ import { expect, test } from "vitest";
 import { Silo, value } from "@priemskiyyy/silo";
 import { createMockAdapter } from "@priemskiyyy/silo/mock";
 
-const schema = {
+const Schema = {
   theme: value<"light" | "dark">({ fallback: "light" }),
 };
 
@@ -211,7 +211,7 @@ test("a refused write never throws out of set", async () => {
     },
   });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
 
@@ -329,10 +329,10 @@ import { createMockAdapter } from "@priemskiyyy/silo/mock";
 
 test("an expired value reads absent and is deleted", async () => {
   const mock = createMockAdapter();
-  const schema = { token: value<string>({ expires: { in: 60_000 } }) };
+  const Schema = { token: value<string>({ expires: { in: 60_000 } }) };
   let clock = 0;
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     now: () => clock,
   });
 
@@ -346,7 +346,7 @@ test("an expired value reads absent and is deleted", async () => {
 
   clock = 60_001;
   const reloaded = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     now: () => clock,
   });
 

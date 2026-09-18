@@ -12,7 +12,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-const schema = { theme: value({ fallback: "light" }) };
+const Schema = { theme: value({ fallback: "light" }) };
 
 const shadowText = (container: HTMLElement) =>
   container.querySelector("[data-silo-devtools]")?.shadowRoot?.textContent ??
@@ -21,7 +21,7 @@ const shadowText = (container: HTMLElement) =>
 test("the React wrapper mounts the inspector for the provider's store and removes it on unmount", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const view = render(
     createElement(
@@ -45,7 +45,7 @@ test("the React wrapper mounts the inspector for the provider's store and remove
 test("server rendering emits only the host element and reaches no value", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const html = renderToString(
     createElement(

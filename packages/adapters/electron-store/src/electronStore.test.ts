@@ -93,10 +93,13 @@ test("dispose releases an observer nobody stopped, and keeps the data", () => {
 
 test("a silo persists through this adapter and rereads a write from another process", () => {
   const fake = createFakeStore();
-  const schema = { theme: value<"light" | "dark">({ fallback: "light" }) };
+  const Schema = { theme: value<"light" | "dark">({ fallback: "light" }) };
   const silo = new Silo({
     storages: {
-      default: { adapters: [electronStore({ store: fake.store })], schema },
+      default: {
+        adapters: [electronStore({ store: fake.store })],
+        schema: Schema,
+      },
     },
   });
   const theme = silo.value("theme");

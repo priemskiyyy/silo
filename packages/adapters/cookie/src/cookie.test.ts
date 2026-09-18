@@ -155,9 +155,9 @@ test("a cookie the page cannot read back is a refused write, not a phantom value
 });
 
 test("a silo persists through this adapter and rehydrates from it", () => {
-  const schema = { theme: value<string>({ fallback: "light" }) };
+  const Schema = { theme: value<string>({ fallback: "light" }) };
   const silo = new Silo({
-    storages: { default: { adapters: [cookie()], schema } },
+    storages: { default: { adapters: [cookie()], schema: Schema } },
   });
 
   silo.value("theme").set("dark");
@@ -165,7 +165,7 @@ test("a silo persists through this adapter and rehydrates from it", () => {
   expect(document.cookie).toBe(`${encodeURIComponent(KEY)}=%22dark%22`);
 
   const reloaded = new Silo({
-    storages: { default: { adapters: [cookie()], schema } },
+    storages: { default: { adapters: [cookie()], schema: Schema } },
   });
 
   expect(reloaded.value("theme").get()).toBe("dark");

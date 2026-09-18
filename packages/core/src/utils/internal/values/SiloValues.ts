@@ -54,7 +54,7 @@ export class SiloValues<TStorages extends Storages> {
     this.#admit = admit;
     this.#diagnostics = diagnostics;
 
-    for (const [name, { schema }] of Object.entries(storages)) {
+    for (const [name, { schema: Schema }] of Object.entries(storages)) {
       const backend = backends[name];
       const keyspace = keyspaces[name];
 
@@ -70,7 +70,7 @@ export class SiloValues<TStorages extends Storages> {
       };
       this.#backings.set(name, backing);
 
-      for (const [key, definition] of Object.entries(schema)) {
+      for (const [key, definition] of Object.entries(Schema)) {
         const path =
           name === DEFAULT_STORAGE ? key : `${name}${PATH_SEPARATOR}${key}`;
         this.#entries.set(path, {

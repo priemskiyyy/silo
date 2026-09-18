@@ -25,7 +25,7 @@ const strings = {
   },
 } satisfies Codec<string>;
 
-const schema = {
+const Schema = {
   theme: value<Theme>({ fallback: "light" }),
   visits: value({ fallback: 0 }),
   boxed: value({ codec: boxes }),
@@ -65,7 +65,7 @@ const createSilo = (mode: "sync" | "async") => {
     return {
       mock,
       silo: new Silo({
-        storages: { default: { adapters: [mock.adapter], schema: schema } },
+        storages: { default: { adapters: [mock.adapter], schema: Schema } },
       }),
     };
   }
@@ -74,7 +74,7 @@ const createSilo = (mode: "sync" | "async") => {
   return {
     mock,
     silo: new Silo({
-      storages: { default: { adapters: [mock.adapter], schema: schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     }),
   };
 };
@@ -83,7 +83,7 @@ test("a synchronous adapter without migrations hydrates inside value() and never
   const mock = createMockAdapter();
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   const theme = silo.value("theme");
@@ -98,7 +98,7 @@ test("get returns the stored reference, so decoding runs once per inbound value"
   const mock = createMockAdapter();
   mock.store.set("silo:boxed", 7);
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const boxed = silo.value("boxed");
 
@@ -133,7 +133,7 @@ test("an unchanged status does not notify, because the payload free statuses are
 test("two acquisitions of the same key share one handle and produce exactly one read", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   const first = silo.value("theme");
@@ -156,7 +156,7 @@ test("a read a write overtook cannot land on top of it, on an asynchronous adapt
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "light");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const read = callsTo(mock, "get", "silo:theme")[0];
@@ -195,7 +195,7 @@ test("a read a write overtook cannot land on top of it, on a synchronous adapter
   });
   mock.store.set("silo:theme", "light");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   // The adapter writes back from inside the next read and leaves that read a
@@ -217,7 +217,7 @@ test("a set that lands mid read wins and settles hydrated() without waiting for 
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "light");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const hydrated = theme.hydrated();
@@ -239,7 +239,7 @@ test("a remove that lands mid read wins", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const hydrated = theme.hydrated();
@@ -258,7 +258,7 @@ test("a remove that lands mid read wins", async () => {
 test("set(A) then set(B) reach the adapter in order and converge on B", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const visits = silo.value("visits");
 
@@ -306,7 +306,7 @@ test.each(["sync", "async"])(
 test("rapid writes coalesce and a flush waiting on one that was coalesced away still resolves", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const visits = silo.value("visits");
   const settled = vi.fn();
@@ -339,7 +339,7 @@ test("rapid writes coalesce and a flush waiting on one that was coalesced away s
 test("flush rejects on a failed write and keeps rejecting until a newer mutation is accepted", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const visits = silo.value("visits");
 
@@ -362,7 +362,7 @@ test("flush rejects on a failed write and keeps rejecting until a newer mutation
 test("a failed write keeps the snapshot it reported and puts the failure in the write phase", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const visits = silo.value("visits");
   const observed = vi.fn();
@@ -388,7 +388,7 @@ test("a decode failure keeps the corrupt raw exactly where it is and resolves hy
   const mock = createMockAdapter();
   mock.store.set("silo:strict", 42);
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const strict = silo.value("strict");
 
@@ -417,7 +417,7 @@ test("an adapter that throws on read takes the same path as a decode failure", (
     },
   });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   const theme = silo.value("theme");
@@ -434,7 +434,7 @@ test("a set after a decode failure clears the error and overwrites the corrupt r
   const mock = createMockAdapter();
   mock.store.set("silo:strict", 42);
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const strict = silo.value("strict");
 
@@ -450,7 +450,7 @@ test("a set after a decode failure clears the error and overwrites the corrupt r
 test("an external change during a pending write is dropped, so the local write wins", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
 
@@ -469,7 +469,7 @@ test("a re-read that lands while a write is in flight is dropped", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:theme", "light");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   await drain(mock);
@@ -495,7 +495,7 @@ test("a re-read that lands while a write is in flight is dropped", async () => {
 test("a committed external change is already durable and a flush after it has nothing to wait for", async () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const observed = vi.fn();
@@ -514,7 +514,7 @@ test("an external payload that will not decode leaves the previous good snapshot
   const mock = createMockAdapter();
   mock.store.set("silo:strict", "good");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const strict = silo.value("strict");
 
@@ -528,7 +528,7 @@ test("an external payload that will not decode leaves the previous good snapshot
 test("an external clear re-reads every record", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const visits = silo.value("visits");
@@ -591,7 +591,7 @@ test("dispose is idempotent, silences every channel, and rejects outstanding hyd
   });
   mock.store.set("silo:theme", "dark");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const theme = silo.value("theme");
   const hydrated = theme.hydrated();
@@ -620,7 +620,7 @@ test("dispose is idempotent, silences every channel, and rejects outstanding hyd
 test("a write already in flight at dispose still reaches the adapter", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const visits = silo.value("visits");
 
@@ -637,7 +637,7 @@ test("an expired value reads as absent and schedules its own deletion", async ()
   const clock = { now: 5_000 };
   mock.store.set("silo:token", { value: "secret", expires: { at: 4_999 } });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     now: () => clock.now,
   });
 
@@ -655,7 +655,7 @@ test("a live envelope decodes, and only a key declaring expires is enveloped at 
   const clock = { now: 5_000 };
   mock.store.set("silo:token", { value: "secret", expires: { at: 5_001 } });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     now: () => clock.now,
   });
 
@@ -742,7 +742,7 @@ test("a raw that is not an envelope is a bare, never expiring value", () => {
   const mock = createMockAdapter();
   mock.store.set("silo:token", "written before expiry existed");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     now: () => Number.MAX_SAFE_INTEGER,
   });
 
@@ -767,7 +767,7 @@ test("setting undefined removes the key instead of writing undefined to the adap
   const mock = createMockAdapter();
   mock.store.set("silo:strict", "stored");
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const strict = silo.value("strict");
 
@@ -849,7 +849,7 @@ const probeAsyncAdapter = () => {
 test("an asynchronous adapter that throws instead of rejecting still cannot break set", async () => {
   const adapter = probeAsyncAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [adapter], schema: schema } },
+    storages: { default: { adapters: [adapter], schema: Schema } },
   });
   const visits = silo.value("visits");
   await visits.hydrated();
@@ -871,7 +871,7 @@ test("an asynchronous adapter that throws instead of rejecting still cannot brea
 test("an asynchronous adapter that throws instead of rejecting still cannot break value()", async () => {
   const adapter = probeAsyncAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [adapter], schema: schema } },
+    storages: { default: { adapters: [adapter], schema: Schema } },
   });
   adapter.dispose();
 

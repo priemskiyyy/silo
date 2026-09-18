@@ -21,14 +21,14 @@ import type {
   RegisteredValue,
 } from "src/types/Register";
 
-const schema = {
+const Schema = {
   theme: value<"light" | "dark">({ fallback: "light" }),
   user: value<{ id: string }>(),
 };
 
 const silo = new Silo({
   storages: {
-    default: { adapters: [createMockAdapter().adapter], schema: schema },
+    default: { adapters: [createMockAdapter().adapter], schema: Schema },
   },
 });
 

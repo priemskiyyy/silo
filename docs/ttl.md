@@ -13,13 +13,13 @@ import { memory } from "@priemskiyyy/silo-memory";
 
 const HOUR = 3_600_000;
 
-const schema = {
+const Schema = {
   token: value<string>({ expires: { in: HOUR } }),
   theme: value<"light" | "dark">({ fallback: "light" }),
 };
 
 const silo = new Silo({
-  storages: { default: { adapters: [memory()], schema } },
+  storages: { default: { adapters: [memory()], schema: Schema } },
 });
 
 silo.value("token").set("abc");
@@ -109,7 +109,7 @@ const store = memory();
 let clock = 0;
 
 const first = new Silo({
-  storages: { default: { adapters: [store], schema } },
+  storages: { default: { adapters: [store], schema: Schema } },
   now: () => clock,
 });
 
@@ -119,7 +119,7 @@ first.value("token").get(); // "abc"
 clock += HOUR + 1;
 
 const second = new Silo({
-  storages: { default: { adapters: [store], schema } },
+  storages: { default: { adapters: [store], schema: Schema } },
   now: () => clock,
 });
 

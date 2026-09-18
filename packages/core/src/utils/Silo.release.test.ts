@@ -4,7 +4,7 @@ import { deferred } from "src/utils/common/deferred";
 import { Silo } from "src/utils/Silo";
 import { value } from "src/utils/value";
 
-const schema = { count: value({ fallback: 0 }) };
+const Schema = { count: value({ fallback: 0 }) };
 const macrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 test("release covers a scope's physical aliases and descendants across storages", async () => {
@@ -12,8 +12,8 @@ test("release covers a scope's physical aliases and descendants across storages"
   const secondary = createMockAdapter();
   const silo = new Silo({
     storages: {
-      default: { adapters: [primary.adapter], schema },
-      secure: { adapters: [secondary.adapter], namespace: "", schema },
+      default: { adapters: [primary.adapter], schema: Schema },
+      secure: { adapters: [secondary.adapter], namespace: "", schema: Schema },
     },
   });
   const account = silo.scope("users").scope("7");
@@ -63,7 +63,7 @@ test.each(["silo", ""])(
     const mock = createMockAdapter();
     const silo = new Silo({
       namespace,
-      storages: { default: { adapters: [mock.adapter], schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     });
     await silo.scope("unused").release();
     expect(mock.calls).toEqual([]);
@@ -83,7 +83,7 @@ test.each(["silo", ""])(
 test("release waits for writes accepted while an earlier barrier settles", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const scope = silo.scope("account");
   const count = scope.value("count");
@@ -110,7 +110,7 @@ test("release waits for writes accepted while an earlier barrier settles", async
 test("a failed release keeps every record available for recovery", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const scope = silo.scope("account");
   const count = scope.value("count");
@@ -136,7 +136,7 @@ test("releasing a cold record rejects hydration and ignores a late read", async 
   const mock = createMockAdapter({ mode: "async", hold: true });
   mock.store.set("silo:account:count", 9);
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const scope = silo.scope("account");
   const count = scope.value("count");
@@ -158,7 +158,7 @@ test("releasing a cold record rejects hydration and ignores a late read", async 
 test("disposal interrupts a pending release and concurrent releases are harmless", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const scope = silo.scope("account");
   scope.value("count").set(1);
@@ -174,7 +174,7 @@ test("disposal interrupts a pending release and concurrent releases are harmless
 test("overlapping releases wait for shared writes and leave storage intact", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const scope = silo.scope("account");
   const child = scope.scope("child");
@@ -193,7 +193,7 @@ test("release cancels only the old record's pending migration admission", async 
   const migration = deferred();
   mock.store.set("silo:account:count", 9);
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: { 1: () => migration.promise },
   });
   const scope = silo.scope("account");

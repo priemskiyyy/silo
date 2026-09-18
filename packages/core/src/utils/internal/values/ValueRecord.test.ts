@@ -319,15 +319,15 @@ test("hydrated can first be observed after settlement or after cancellation", as
 
 test("scoped codecs use the current clock and never share a different store's clock", async () => {
   let now = 1_000;
-  const schema = { count: value({ fallback: 0, expires: { in: 100 } }) };
+  const Schema = { count: value({ fallback: 0, expires: { in: 100 } }) };
   const primary = createMockAdapter();
   const secondary = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [primary.adapter], schema } },
+    storages: { default: { adapters: [primary.adapter], schema: Schema } },
     now: () => now,
   });
   const other = new Silo({
-    storages: { default: { adapters: [secondary.adapter], schema } },
+    storages: { default: { adapters: [secondary.adapter], schema: Schema } },
     now: () => 5_000,
   });
   silo.value("count").set(1);

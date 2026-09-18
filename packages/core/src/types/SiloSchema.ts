@@ -8,7 +8,7 @@ import type { ValueDefinition } from "src/types/ValueDefinition";
  *
  * @example
  * ```ts
- * const schema = { theme: value<Theme>({ fallback: "light" }) } satisfies SiloSchema;
+ * const Schema = { theme: value<Theme>({ fallback: "light" }) } satisfies SiloSchema;
  * ```
  */
 export type SiloSchema = Record<string, ValueDefinition<unknown>>;

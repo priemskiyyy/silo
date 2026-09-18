@@ -22,7 +22,7 @@ export type SiloProviderProps = PropsWithChildren<{
  *
  * @example
  * ```tsx
- * const silo = new Silo({ storages: { default: { adapters: [localStorage()], schema } } });
+ * const silo = new Silo({ storages: { default: { adapters: [localStorage()], schema: Schema } } });
  *
  * <SiloProvider silo={silo} scope={`users:${user.id}`}>
  *   <div>Per-user values go here.</div>

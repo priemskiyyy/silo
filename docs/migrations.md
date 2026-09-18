@@ -175,7 +175,7 @@ const migrate: AsyncMigration = async (store) => {
 
 // @ts-expect-error an asynchronous migration needs an asynchronous storage.
 export const silo = new Silo({
-  storages: { default: { adapters: [memory()], schema } },
+  storages: { default: { adapters: [memory()], schema: Schema } },
   migrations: { 2: migrate },
 });
 ```

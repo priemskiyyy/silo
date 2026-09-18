@@ -200,11 +200,11 @@ test("fetch is read when a request is made, and available says whether one exist
 
 test("a silo persists through a scope and rehydrates from the server", async () => {
   const server = fakeServer();
-  const schema = { theme: value<"light" | "dark">({ fallback: "light" }) };
+  const Schema = { theme: value<"light" | "dark">({ fallback: "light" }) };
   const storages = () => ({
     default: {
       adapters: [http({ url: server.base, fetch: server.fetch })],
-      schema,
+      schema: Schema,
     },
   });
   const first = new Silo({ storages: storages() });

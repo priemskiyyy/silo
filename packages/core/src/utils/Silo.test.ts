@@ -9,7 +9,7 @@ import { value } from "src/utils/value";
 
 type Theme = "light" | "dark";
 
-const schema = {
+const Schema = {
   theme: value<Theme>({ fallback: "light" }),
   visits: value({ fallback: 0 }),
 };
@@ -35,12 +35,12 @@ test("the namespace defaults to silo, and an empty one is the shared keyspace op
   const shared = createMockAdapter();
 
   new Silo({
-    storages: { default: { adapters: [prefixed.adapter], schema: schema } },
+    storages: { default: { adapters: [prefixed.adapter], schema: Schema } },
   })
     .value("theme")
     .set("dark");
   new Silo({
-    storages: { default: { adapters: [shared.adapter], schema: schema } },
+    storages: { default: { adapters: [shared.adapter], schema: Schema } },
     namespace: "",
   })
     .value("theme")
@@ -56,7 +56,7 @@ test("a namespace, a schema key and a scope segment are validated where each is 
   expect(
     () =>
       new Silo({
-        storages: { default: { adapters: [mock.adapter], schema: schema } },
+        storages: { default: { adapters: [mock.adapter], schema: Schema } },
         namespace: "a:b",
       }),
   ).toThrow('A Silo namespace must not contain ":", received "a:b".');
@@ -73,7 +73,7 @@ test("a namespace, a schema key and a scope segment are validated where each is 
   ).toThrow('A Silo schema key must not contain ":" or ".", received "a:b".');
   expect(() =>
     new Silo({
-      storages: { default: { adapters: [mock.adapter], schema: schema } },
+      storages: { default: { adapters: [mock.adapter], schema: Schema } },
     }).scope(""),
   ).toThrow("A Silo scope segment must not be empty.");
 });
@@ -81,7 +81,7 @@ test("a namespace, a schema key and a scope segment are validated where each is 
 test("a key the schema does not declare is refused at the boundary", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   // @ts-expect-error the schema declares no such key, which is the type's job
@@ -99,7 +99,7 @@ test("a list of adapters picks the first available at construction, keeps it, an
     storages: {
       default: {
         adapters: [blocked.adapter, chosen.adapter, spare.adapter],
-        schema: schema,
+        schema: Schema,
       },
     },
   });
@@ -121,7 +121,7 @@ test("a list with an asynchronous candidate is an asynchronous store, whichever 
   const chosen = createMockAdapter();
   const silo = new Silo({
     storages: {
-      default: { adapters: [slow.adapter, chosen.adapter], schema: schema },
+      default: { adapters: [slow.adapter, chosen.adapter], schema: Schema },
     }, // Typed as an asynchronous migration by the list itself, before anything
     // ran: one asynchronous candidate anywhere decides the flavour.
     migrations: { 1: async (store) => await store.set("visits", 3) },
@@ -143,7 +143,7 @@ test("the last candidate is taken as given, so a list with nothing available sti
   const last = createMockAdapter({ available: false });
   const silo = new Silo({
     storages: {
-      default: { adapters: [first.adapter, last.adapter], schema: schema },
+      default: { adapters: [first.adapter, last.adapter], schema: Schema },
     },
   });
 
@@ -157,7 +157,7 @@ test("the last candidate is taken as given, so a list with nothing available sti
 test("native carries the adapter's own handle", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   expect(silo.native.default).toBe(mock.adapter.native);
@@ -168,7 +168,7 @@ test("native carries the adapter's own handle", () => {
 test("an adapter without observe is used without one capability check on its name", () => {
   const mock = createMockAdapter({ observe: false });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
 
   silo.value("theme").set("dark");
@@ -180,7 +180,7 @@ test("an adapter without observe is used without one capability check on its nam
 test("scopes isolate their keys, nest, and hand back the same value per key", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const account = silo.scope("users:7");
   const nested = account.scope("prefs");
@@ -204,7 +204,7 @@ test("scopes isolate their keys, nest, and hand back the same value per key", ()
 test("clear removes every declared key at its own scope and resolves as a barrier", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const account = silo.scope("users:7");
   mock.store.set("silo:visits", 1);
@@ -248,7 +248,7 @@ test("migrations on a synchronous adapter run in ascending order inside the cons
   } satisfies Record<number, SyncMigration>;
 
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations,
   });
 
@@ -271,7 +271,7 @@ test("a migration key that is not a positive integer is refused at construction"
       // still hand over anything, which is what this guards.
       () =>
         new Silo({
-          storages: { default: { adapters: [mock.adapter], schema: schema } },
+          storages: { default: { adapters: [mock.adapter], schema: Schema } },
           migrations,
         }),
     ).toThrow("A Silo migration is keyed by the positive integer version");
@@ -303,7 +303,7 @@ test("a failed synchronous migration is reported, closes the gate, and the next 
   // Reported rather than thrown out of a constructor that usually runs at
   // module scope: the application still loads, on fallbacks.
   const broken = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: failing,
   });
   const theme = broken.value("theme");
@@ -334,7 +334,7 @@ test("a failed synchronous migration is reported, closes the gate, and the next 
 
   // The next start, over the same adapter, retries from the same point.
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: { ...failing, 3: () => order.push(3) },
   });
 
@@ -348,7 +348,7 @@ test("a failed synchronous migration is reported, closes the gate, and the next 
 test("ready rejects with the synchronous migration that failed, and resolves otherwise", async () => {
   const mock = createMockAdapter();
   const failed = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: {
       1: () => {
         throw new Error("migration 1 failed");
@@ -361,7 +361,7 @@ test("ready rejects with the synchronous migration that failed, and resolves oth
 
   const fine = new Silo({
     storages: {
-      default: { adapters: [createMockAdapter().adapter], schema: schema },
+      default: { adapters: [createMockAdapter().adapter], schema: Schema },
     },
   });
 
@@ -372,7 +372,7 @@ test("ready rejects with the synchronous migration that failed, and resolves oth
 test("a synchronous migration that returns a promise is reported as a named failure", () => {
   const mock = createMockAdapter();
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: { 2: () => Promise.resolve() },
   });
   const status = silo.status.get();
@@ -400,7 +400,7 @@ test("migrations on an asynchronous adapter report migrating and defer every hyd
     },
   } satisfies Record<number, AsyncMigration>;
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations,
   });
   const theme = silo.value("theme");
@@ -426,7 +426,7 @@ test("a failed asynchronous migration reports the failure and refuses to write o
   const mock = createMockAdapter({ mode: "async" });
   mock.store.set("silo::version", 1);
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
     migrations: {
       2: () => Promise.reject(new Error("migration 2 failed")),
     },
@@ -462,7 +462,7 @@ test("a migration lists the namespace's keys, prefix stripped, without the versi
   sync.store.set("other:theme", "not ours");
   let listed: string[] = [];
   const syncSilo = new Silo({
-    storages: { default: { adapters: [sync.adapter], schema: schema } },
+    storages: { default: { adapters: [sync.adapter], schema: Schema } },
     migrations: {
       2: (store) => {
         listed = store.keys();
@@ -487,7 +487,7 @@ test("a migration lists the namespace's keys, prefix stripped, without the versi
   const async = createMockAdapter({ mode: "async" });
   async.store.set("silo:draft", "x");
   const asyncSilo = new Silo({
-    storages: { default: { adapters: [async.adapter], schema: schema } },
+    storages: { default: { adapters: [async.adapter], schema: Schema } },
     migrations: {
       2: async (store) => {
         listed = await store.keys();
@@ -504,7 +504,7 @@ test("a migration lists the namespace's keys, prefix stripped, without the versi
 test("an adapter that cannot enumerate fails the migration that asks, by a named error", async () => {
   const sync = createMockAdapter({ keys: false });
   const syncSilo = new Silo({
-    storages: { default: { adapters: [sync.adapter], schema: schema } },
+    storages: { default: { adapters: [sync.adapter], schema: Schema } },
     migrations: { 1: (store) => store.keys().forEach(store.remove) },
   });
 
@@ -515,7 +515,7 @@ test("an adapter that cannot enumerate fails the migration that asks, by a named
 
   const async = createMockAdapter({ mode: "async", keys: false });
   const asyncSilo = new Silo({
-    storages: { default: { adapters: [async.adapter], schema: schema } },
+    storages: { default: { adapters: [async.adapter], schema: Schema } },
     migrations: {
       1: async (store) => {
         await store.keys();
@@ -532,7 +532,7 @@ test("a key lives in the storage that declares it, addressed bare in default and
   const secure = createMockAdapter();
   const silo = new Silo({
     storages: {
-      default: { adapters: [preferences.adapter], schema },
+      default: { adapters: [preferences.adapter], schema: Schema },
       secure: {
         adapters: [secure.adapter],
         schema: { token: value<string>() },
@@ -594,7 +594,7 @@ test("a storage name or a key that would break the path is refused at constructi
     () =>
       new Silo({
         storages: {
-          default: { adapters: [createMockAdapter().adapter], schema },
+          default: { adapters: [createMockAdapter().adapter], schema: Schema },
           "a.b": { adapters: [createMockAdapter().adapter], schema: {} },
         },
       }),
@@ -619,7 +619,7 @@ test("a change one storage reports reaches only the records that live there", ()
   const secure = createMockAdapter();
   const silo = new Silo({
     storages: {
-      default: { adapters: [preferences.adapter], schema },
+      default: { adapters: [preferences.adapter], schema: Schema },
       secure: {
         adapters: [secure.adapter],
         schema: { token: value<string>() },
@@ -655,7 +655,7 @@ test("a migration reaches every storage through one store, and copy, move and re
   secure.store.set("silo:users:7:token", "scoped");
   const silo = new Silo({
     storages: {
-      default: { adapters: [preferences.adapter], schema },
+      default: { adapters: [preferences.adapter], schema: Schema },
       secure: {
         adapters: [secure.adapter],
         schema: { token: value<string>() },
@@ -688,7 +688,7 @@ test("a migration reaches every storage through one store, and copy, move and re
   // A storage the store does not declare fails the migration, never the constructor.
   const broken = new Silo({
     storages: {
-      default: { adapters: [createMockAdapter().adapter], schema },
+      default: { adapters: [createMockAdapter().adapter], schema: Schema },
     },
     migrations: { 1: (store) => store.storage("vault").remove("x") },
   });
@@ -707,7 +707,7 @@ test("one asynchronous storage makes the migration store asynchronous on every s
   preferences.store.set("silo:token", "t0k3n");
   const silo = new Silo({
     storages: {
-      default: { adapters: [preferences.adapter], schema },
+      default: { adapters: [preferences.adapter], schema: Schema },
       secure: {
         adapters: [secure.adapter],
         schema: { token: value<string>() },
@@ -734,7 +734,7 @@ test("one asynchronous storage makes the migration store asynchronous on every s
 test("flush covers every record the store has handed out", async () => {
   const mock = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
-    storages: { default: { adapters: [mock.adapter], schema: schema } },
+    storages: { default: { adapters: [mock.adapter], schema: Schema } },
   });
   const settled = vi.fn();
 
@@ -758,8 +758,8 @@ test("flush covers dirty records in every storage without waiting for later writ
   const remote = createMockAdapter({ mode: "async", hold: true });
   const silo = new Silo({
     storages: {
-      default: { adapters: [local.adapter], schema },
-      remote: { adapters: [remote.adapter], schema },
+      default: { adapters: [local.adapter], schema: Schema },
+      remote: { adapters: [remote.adapter], schema: Schema },
     },
   });
   const theme = silo.value("theme");
@@ -879,7 +879,7 @@ test("a synchronous default storage keeps its first frame when no migration step
   local.store.set("silo:theme", "dark");
   const silo = new Silo({
     storages: {
-      default: { adapters: [local.adapter], schema: schema },
+      default: { adapters: [local.adapter], schema: Schema },
       database: {
         adapters: [database.adapter],
         schema: { loads: value({ fallback: 0 }) },
@@ -904,7 +904,7 @@ test("a pending step on a mixed set still runs asynchronously behind the gate", 
   local.store.set("silo::version", 1);
   const silo = new Silo({
     storages: {
-      default: { adapters: [local.adapter], schema: schema },
+      default: { adapters: [local.adapter], schema: Schema },
       database: {
         adapters: [database.adapter],
         schema: { loads: value({ fallback: 0 }) },

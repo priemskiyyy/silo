@@ -30,7 +30,7 @@ const silo = new Silo({
     },
     url: {
       adapters: [searchParams(), memory()],
-      schema: { filter: value({ schema: filterSchema, fallback: "all" }) },
+      schema: { filter: value({ schema: FilterSchema, fallback: "all" }) },
     },
   },
 });

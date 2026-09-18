@@ -514,7 +514,7 @@ import { memory } from "@priemskiyyy/silo-memory";
 import { searchParams } from "@priemskiyyy/silo-search-params";
 import { z } from "zod";
 
-const filterSchema = z.enum(["all", "open", "done"]);
+const FilterSchema = z.enum(["all", "open", "done"]);
 
 const silo = new Silo({
   storages: {
@@ -525,7 +525,7 @@ const silo = new Silo({
     url: {
       adapters: [searchParams(), memory()],
       // The URL is untrusted input, so every key validates and falls back.
-      schema: { filter: value({ schema: filterSchema, fallback: "all" }) },
+      schema: { filter: value({ schema: FilterSchema, fallback: "all" }) },
     },
   },
 });
