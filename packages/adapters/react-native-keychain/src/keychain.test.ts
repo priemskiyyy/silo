@@ -1,10 +1,14 @@
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { decodeKey } from "src/decodeKey";
 import { encodeKey } from "src/encodeKey";
 import { keychain } from "src/keychain";
 import { createFakeKeychain } from "src/keychain.fixture";
 
 const KEY = "silo:users:7:token";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 test("every key becomes one service under the prefix, with the plain key as username and options forwarded", async () => {
   const fake = createFakeKeychain();
@@ -72,6 +76,7 @@ test("the encoding is unpadded base64url and decodes back, for every shape a phy
     "silo::version",
     "a b/c?d=1&e",
     "🙂 emoji",
+    "tab\tseparated",
     "__proto__",
     "",
   ]) {
@@ -81,6 +86,7 @@ test("the encoding is unpadded base64url and decodes back, for every shape a phy
   }
 
   expect(decodeKey("not+base64url")).toBeNull();
+  expect(decodeKey("_w")).toBeNull();
 });
 
 test("keys lists this adapter's services decoded and skips foreign ones", async () => {
@@ -93,6 +99,18 @@ test("keys lists this adapter's services decoded and skips foreign ones", async 
   fake.entries.set("silo.not+base64url", { username: "u", password: "p" });
 
   expect(await adapter.keys?.()).toEqual([KEY, "silo:theme"]);
+  adapter.dispose();
+});
+
+test("a runtime without TextDecoder, such as Hermes, still lists every key it wrote", async () => {
+  vi.stubGlobal("TextDecoder", undefined);
+  const fake = createFakeKeychain();
+  const adapter = keychain({ keychain: fake.module });
+
+  await adapter.set(KEY, 1);
+  await adapter.set("🙂 emoji", 2);
+
+  expect(await adapter.keys?.()).toEqual([KEY, "🙂 emoji"]);
   adapter.dispose();
 });
 

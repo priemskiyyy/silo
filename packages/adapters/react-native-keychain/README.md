@@ -75,7 +75,7 @@ keychain({
 - The module answers `false` instead of throwing when the platform refuses a write; the adapter turns that into a write error on the value's status.
 - iOS keychain items survive an uninstall. Remove what must not, through `remove` or a migration, before relying on a fresh install.
 - Nothing reports a change from outside the adapter, so there is no `observe`. `dispose` leaves the underlying data and client intact.
-- The key encoder uses `TextEncoder` and `TextDecoder`, which Hermes ships since React Native 0.74.
+- The key encoder uses `TextEncoder`, which Hermes ships since React Native 0.74. Hermes has no `TextDecoder`, so `keys` decodes service names without one, and a name whose bytes are not UTF-8 is skipped as foreign.
 
 ## License
 

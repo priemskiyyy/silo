@@ -2,9 +2,9 @@ import { BASE64URL_ALPHABET } from "src/constants/alphabet";
 
 /**
  * The inverse of `encodeKey`, for listing what the keychain holds. A service
- * name that is not base64url was not written by this adapter and decodes to
- * `null`, so a foreign entry under the same prefix is skipped rather than
- * listed as garbage.
+ * name that is not base64url, or whose bytes are not UTF-8, was not written by
+ * this adapter and decodes to `null`, so a foreign entry under the same prefix
+ * is skipped rather than listed as garbage.
  *
  * @example
  * ```ts
@@ -33,5 +33,13 @@ export const decodeKey = (encoded: string): string | null => {
     }
   }
 
-  return new TextDecoder().decode(new Uint8Array(bytes));
+  // Hermes has no TextDecoder. Percent decoding is UTF-8 decoding, and it
+  // throws on bytes that are not UTF-8.
+  try {
+    return decodeURIComponent(
+      bytes.map((byte) => `%${byte.toString(16).padStart(2, "0")}`).join(""),
+    );
+  } catch {
+    return null;
+  }
 };

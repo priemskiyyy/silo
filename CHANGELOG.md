@@ -12,6 +12,7 @@
 - Report external parse and notification failures through status and diagnostics while retaining the current value. Value errors now include the `read` phase.
 - Add a complete multiworkspace and user-key recipe and use PascalCase schema constants throughout the examples.
 - Memory: copy values without `structuredClone` when the runtime has none, so the adapter works in a bare React Native app on Hermes instead of failing every read and write.
+- react-native-keychain: decode service names without `TextDecoder`, which Hermes lacks, so `keys` and the migrations that list keys work in a bare React Native app. A name whose bytes are not UTF-8 is now skipped as foreign.
 
 ## Unreleased
 

@@ -838,8 +838,9 @@ libraries wrote. `native` is the module. No `observe`.
 - **iOS keychain items survive an uninstall.** Remove what must not, through
   `remove` or a migration, before relying on a fresh install.
 - **`service` is set per key** and is not among the forwarded options.
-- **The encoder uses `TextEncoder` and `TextDecoder`**, which Hermes ships since
-  React Native 0.74.
+- **The encoder uses `TextEncoder`**, which Hermes ships since React Native
+  0.74. Hermes has no `TextDecoder`, so `keys` decodes service names without
+  one, and a name whose bytes are not UTF-8 is skipped as foreign.
 
 ### Capacitor Preferences
 
