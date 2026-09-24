@@ -148,7 +148,8 @@ them. See [schema and codecs](schema-and-codecs.md).
   `node16`. The published declarations are built and verified with TypeScript
   5.8 against a packed consumer at `skipLibCheck: false`.
 - The memory adapter uses `structuredClone`, present in every browser Silo
-  targets and in Node 17 and newer.
+  targets, in Node 17 and newer, and in Expo. A bare React Native app on Hermes
+  has none, and the adapter copies values itself there.
 - The browser adapters resolve their platform lazily, so importing them on a
   server is safe: `available()` answers `false`, and a store constructed there
   can select another candidate. See [server rendering](server-rendering.md).

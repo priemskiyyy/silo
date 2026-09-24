@@ -1,4 +1,5 @@
 import { createStorageAdapter } from "@priemskiyyy/silo";
+import { cloneValue } from "src/cloneValue";
 import type { MemoryAdapterOptions } from "src/types/MemoryAdapterOptions";
 import type { MemoryStore } from "src/types/MemoryStore";
 
@@ -20,9 +21,9 @@ export const memory = ({
     mode: "sync",
     name: "memory",
     native: store,
-    get: (key) => structuredClone(store.get(key)),
+    get: (key) => cloneValue(store.get(key)),
     set: (key, value) => {
-      store.set(key, structuredClone(value));
+      store.set(key, cloneValue(value));
     },
     remove: (key) => {
       store.delete(key);

@@ -256,6 +256,10 @@ hydration or assert against it afterwards. `keys` lists the map, and
 - **A value `structuredClone` refuses fails loudly.** A function or a DOM node
   throws `DataCloneError` from the adapter's `set`. The core contains it and
   reports `{ state: "error", error: { phase: "write" } }`.
+- **Hermes has no `structuredClone`.** In a bare React Native app the adapter
+  copies values itself: the corpus above survives and a function still fails
+  the write, but an `Error` or any other built-in object outside the corpus
+  comes back as a plain object.
 - **Reading `native` bypasses the clone.** An entry taken out of the `Map` is the
   stored object, so mutating it corrupts persisted state with no notification.
 - **No `observe`.** To drive the external-change path in tests, use

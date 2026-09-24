@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import { testStorageAdapter } from "@priemskiyyy/silo/testing";
 import { memory } from "src/memory";
 
@@ -7,16 +8,37 @@ cycle.self = cycle;
 // `structuredClone` is this backend's encoding boundary, so the corpus claims
 // exactly what it carries: everything JSON-safe, plus the values JSON would
 // flatten. None of it is portable to the web storage adapters.
+const values = {
+  date: new Date("2026-01-01T00:00:00.000Z"),
+  map: new Map([["key", { nested: true }]]),
+  set: new Set([1, 2, 3]),
+  "regular expression": /silo/giu,
+  bigint: 9007199254740993n,
+  "typed array": new Uint8Array([1, 2, 3]),
+  "circular reference": cycle,
+};
+
 testStorageAdapter({
   name: "memory",
   createAdapter: () => memory(),
-  values: {
-    date: new Date("2026-01-01T00:00:00.000Z"),
-    map: new Map([["key", { nested: true }]]),
-    set: new Set([1, 2, 3]),
-    "regular expression": /silo/giu,
-    bigint: 9007199254740993n,
-    "typed array": new Uint8Array([1, 2, 3]),
-    "circular reference": cycle,
-  },
+  values,
+});
+
+// Hermes, the engine of a bare React Native app, has no `structuredClone`, and
+// the memory adapter is the candidate a list falls back to, so it must carry
+// the same corpus there.
+describe("a runtime without structuredClone, such as Hermes", () => {
+  beforeEach(() => {
+    vi.stubGlobal("structuredClone", undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  testStorageAdapter({
+    name: "memory",
+    createAdapter: () => memory(),
+    values,
+  });
 });

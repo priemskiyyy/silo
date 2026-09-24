@@ -1,7 +1,11 @@
-import { expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { memory } from "src/memory";
 
 const KEY = "silo:user";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 test("the factory is cold and every adapter owns its own store", () => {
   const first = memory();
@@ -49,6 +53,38 @@ test("a value structuredClone refuses fails loudly instead of being stored", () 
   const adapter = memory();
 
   expect(() => adapter.set(KEY, { handleClick: () => undefined })).toThrow();
+  expect(adapter.get(KEY)).toBeUndefined();
+
+  adapter.dispose();
+});
+
+test("a runtime without structuredClone, such as Hermes, still stores a copy", () => {
+  vi.stubGlobal("structuredClone", undefined);
+  const adapter = memory();
+  const role = { name: "admin" };
+
+  adapter.set(KEY, {
+    roles: new Set([role]),
+    grants: new Map([["docs", role]]),
+  });
+  role.name = "guest";
+
+  expect(adapter.get(KEY)).toEqual({
+    roles: new Set([{ name: "admin" }]),
+    grants: new Map([["docs", { name: "admin" }]]),
+  });
+  expect(adapter.get(KEY)).not.toBe(adapter.get(KEY));
+
+  adapter.dispose();
+});
+
+test("a runtime without structuredClone refuses a function the same way", () => {
+  vi.stubGlobal("structuredClone", undefined);
+  const adapter = memory();
+
+  expect(() => adapter.set(KEY, { handleClick: () => undefined })).toThrow(
+    expect.objectContaining({ name: "DataCloneError" }),
+  );
   expect(adapter.get(KEY)).toBeUndefined();
 
   adapter.dispose();

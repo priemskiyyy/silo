@@ -11,6 +11,7 @@
 - Add `value.reload()` to retry reads without replacing handles, with pending-write protection and cancellation on scope release or disposal.
 - Report external parse and notification failures through status and diagnostics while retaining the current value. Value errors now include the `read` phase.
 - Add a complete multiworkspace and user-key recipe and use PascalCase schema constants throughout the examples.
+- Memory: copy values without `structuredClone` when the runtime has none, so the adapter works in a bare React Native app on Hermes instead of failing every read and write.
 
 ## Unreleased
 

@@ -44,6 +44,7 @@ silo.value("theme").get(); // "dark"
 
 - Nothing persists: the store lives in the adapter, so it is gone on reload, on `dispose()`, and two `memory()` calls share nothing. Put it last in a candidate list, `[localStorage(), memory()]`, so it is the fallback candidate.
 - Values pass through `structuredClone` on write and on read, so a `Date`, a `Map`, a `Set` or a typed array survives, a class instance comes back as a plain object, and a value the clone refuses, such as a function, fails the write. None of that is portable to the JSON adapters.
+- Where the runtime has no `structuredClone`, as in a bare React Native app on Hermes, the adapter copies values itself. The same values survive, circular references included, and a function or a symbol still fails the write, but an `Error` or any other built-in object outside that list comes back as a plain object.
 - `native` is the `Map` itself, identity stable, so a test can seed it before hydration or assert against it after. Reading it bypasses the clone.
 - `keys` lists the `Map`. Nothing changes an in-process `Map` from outside, so there is no `observe`; `createMockAdapter` from `@priemskiyyy/silo/mock` drives that path in tests.
 - `available()` is `true` unless `memory({ available })` is given a probe of its own, so a candidate list can be gated by application state at construction. `dispose()` clears the `Map`.
