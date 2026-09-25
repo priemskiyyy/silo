@@ -28,3 +28,10 @@ cd .artifacts/release/@priemskiyyy/silo
 shasum -a 256 -c SHA256SUMS
 npm publish priemskiyyy-silo-<version>.tgz --access public --tag latest
 ```
+
+After the publish, register the trusted publisher, then require two-factor authentication and disallow tokens for the package. The workflow publishes through OIDC, which that setting does not affect. `npm trust` needs npm 11.15 or later. Older versions leave out the permission the registry requires and fail with a bare `400 Bad Request`.
+
+```sh
+npm trust github @priemskiyyy/silo --file publish.yml --repository priemskiyyy/silo --environment npm --allow-publish
+npm access set mfa=publish @priemskiyyy/silo
+```
